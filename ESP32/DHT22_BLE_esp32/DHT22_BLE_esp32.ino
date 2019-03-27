@@ -252,7 +252,7 @@ void loop() {
     // connecting
     if (deviceConnected && !oldDeviceConnected) {
         // do stuff here on connecting
-	Serial.println("Connection to a BLE client done");	
+	      Serial.println("Connection to a BLE client done");	
         oldDeviceConnected = deviceConnected;
     }
    
