@@ -121,10 +121,10 @@ bool getDHTData() {
     Serial.println("DHT22 error status: " + String(dht.getStatusString()));
     return false; // mostly due to a disconnected sensor
   }
-  dTemp= (int16_t) DHTData.temperature*100;
-  dHumidity= (uint16_t) DHTData.humidity*100;
-  dHeat= (int16_t) dht.computeHeatIndex(DHTData.temperature, DHTData.humidity);
-  dDew= (int16_t) dht.computeDewPoint(DHTData.temperature, DHTData.humidity);
+  dTemp= (int16_t) (DHTData.temperature*100);
+  dHumidity= (uint16_t) (DHTData.humidity*100);
+  dHeat= (int16_t) (dht.computeHeatIndex(DHTData.temperature, DHTData.humidity)*100);
+  dDew= (int16_t) (dht.computeDewPoint(DHTData.temperature, DHTData.humidity)*100);
   sTemp=String(DHTData.temperature);
   sHumidity=String(DHTData.humidity); 
   sHeat= String (dht.computeHeatIndex(DHTData.temperature, DHTData.humidity));
@@ -202,8 +202,8 @@ void setup() {
 
 void loop() {
     if (getDHTData()){ //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
-            
-		Serial.println(String(sHumidity+","+sTemp+","+sDew+","+sHeat));
+                
+		            Serial.println(String(sHumidity+","+sTemp+","+sDew+","+sHeat));
 
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
                 //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
@@ -217,7 +217,7 @@ void loop() {
                 pHeat->notify();
                 
             }
-            delay(2000); // The DHT need about 2 secondes to calculate new values : pour le DHT il faut au moins 2 secondes
+            delay(2000); // The DHT need about 2 seconds to calculate new values : pour le DHT il faut au moins 2 secondes
 
     }
         
