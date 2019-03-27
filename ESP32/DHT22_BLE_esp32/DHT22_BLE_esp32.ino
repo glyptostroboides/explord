@@ -105,7 +105,7 @@ uint8_t presentationHeat[] = {
 // Definitions des valeurs pour le service "donnees environnementales" conforme aux definitions de la norme BLE
 
 #define ENV_SERVICE_UUID  BLEUUID((uint16_t)0x181A) // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
-#define TEMP_UUID  BLEUUID((uint16_t)0x2A6A) // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
+#define TEMP_UUID  BLEUUID((uint16_t)0x2A6E) // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
 #define HUMIDITY_UUID BLEUUID((uint16_t)0x2A6F) // 0x2A6F : relative humidity in % correspond a un : uint16 ,Decimal, -1, soit 2 char 
 #define DEW_UUID BLEUUID((uint16_t)0x2A7B) // Dew Point in Celsius degrees with two decimals int
 #define HEAT_UUID BLEUUID((uint16_t)0x2A7A) // Heat Index in Celsius degrees
