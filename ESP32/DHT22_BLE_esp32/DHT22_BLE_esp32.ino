@@ -12,7 +12,7 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
 #include <BLE2902.h>
 
 /* DHT Data
- *  The DHT library provide two value from the sensor temperature and humidity with one decimal.
+ *  The DHT library provide two values from the sensor temperature and humidity with one decimal.
  *  The library provide also computed heat index and dew point which are also exposed through BLE
  */
 
@@ -29,24 +29,7 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
   String sHumidity;
   String sHeat;
   String sDew;
-/*
-//HardwareSerial Serial1(1); // RX (need interrupt capacity), TX, Serial1 is already defined in HardwareSerial.h
-String LoxD = ""; // init the value for the LOX data string
 
-//Define the value to collect from the LoxD
-//unsigned int dPPO2; // O2 partial pressure in millibar with 1 decimal converted to Pascals with no decimals
-uint32_t dPPO2;
-
-//signed short dTemp; // temperature in Celsius degrees with 2 decimals : signed value
-int16_t dTemp; 
-
-//unsigned int dPressure; // pressure in millibar with 0 decimal converted to Pascals with no decimals
-uint32_t dPressure;
-
-//unsigned int dO2; //%  O2 rate in percent with 2 decimals
-uint16_t dO2;
-// sO2 = "000.00" : possible peut être pour reserver directement l'espace necessaire pour stocker la donnee
-*/
 /*
  *Server pointer and BLE characteristics pointers
  *Declaration du serveur et des pointeurs pour les caracteristiques BLE 
@@ -59,7 +42,7 @@ BLECharacteristic* pDew = NULL;
 
 /*
  *Value to store the BLE server connection state
- *Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non
+ *Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
  */
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
@@ -124,7 +107,7 @@ uint8_t presentationHeat[] = {
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
-      BLEDevice::startAdvertising(); // needed to support multi-connect, that mean more than one client connected to server
+      BLEDevice::startAdvertising(); // needed to support multi-connect, that mean more than one client connected to server, must be commented if using BLE 4.0 device
     };
 
     void onDisconnect(BLEServer* pServer) {
@@ -133,10 +116,10 @@ class MyServerCallbacks: public BLEServerCallbacks {
 };
 
 bool getDHTData() {
-  DHTData = dht.getTempAndHumidity();
+  DHTData = dht.getTempAndHumidity(); //get the temperature and humidity
   if (dht.getStatus() != 0) {
-    Serial.println("DHT11 error status: " + String(dht.getStatusString()));
-    return false;
+    Serial.println("DHT22 error status: " + String(dht.getStatusString()));
+    return false; // mostly due to a disconnected sensor
   }
   dTemp= (int16_t) DHTData.temperature*100;
   dHumidity= (uint16_t) DHTData.humidity*100;
@@ -146,8 +129,6 @@ bool getDHTData() {
   sHumidity=String(DHTData.humidity); 
   sHeat= String (dht.computeHeatIndex(DHTData.temperature, DHTData.humidity));
   sDew= String(dht.computeDewPoint(DHTData.temperature, DHTData.humidity));
-  
-  
   return true;
 }
 
@@ -181,27 +162,12 @@ void setup() {
   pDew = pEnvService->createCharacteristic(DEW_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY  );
   pHeat = pEnvService->createCharacteristic(HEAT_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
   
- 
-  // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
   // Create a BLE Descriptor with BLE2902 (which manage the Notify settings)
   pHumidity->addDescriptor(new BLE2902());
   pTemp->addDescriptor(new BLE2902());
   pDew->addDescriptor(new BLE2902());
   pHeat->addDescriptor(new BLE2902());
   
-
- 
-  // Define a Descriptor for the name of the value for PPO2 and O2 : Definition des descripteurs contenant le nom des valeurs présentées par le serveur
- /* BLEDescriptor *namePPO2Descriptor = new BLEDescriptor((uint16_t)0x2901); // Characteristic User Description : pour indiquer le nom de la valeur mesurée
-  pPPO2->addDescriptor(namePPO2Descriptor);
-  namePPO2Descriptor->setValue(PPO2_CHARACTERISTIC_DESCRIPTION);
-  
-  BLEDescriptor *nameO2Descriptor = new BLEDescriptor((uint16_t)0x2901); // Characteristic User Description : pour indiquer le nom de la valeur mesurée
-  pO2->addDescriptor(nameO2Descriptor);
-  nameO2Descriptor->setValue(O2_CHARACTERISTIC_DESCRIPTION);*/
-  
-  
- 
  //Define the presentation format for each characteristic ( Characteristic Presentation Format) : Définition des descripteurs contenant les informations sur la presentation des valeurs mesurées
   BLEDescriptor *presentationHumidityDescriptor = new BLEDescriptor((uint16_t)0x2904);
   pHumidity->addDescriptor(presentationHumidityDescriptor);
@@ -231,16 +197,14 @@ void setup() {
   BLEDevice::startAdvertising();
   //Serial.println("Waiting a client connection to notify... : En attente d'une connection BLE pour notifier");
   Serial.println("Humidity, Temperature,Dew Point,Heat Index");
-  delay(2000); // Il faut laisser du temps au DHT pour calculer l'humidité et la température
+  delay(2000); // The DHT need about 2 secondes to calculate new values : Il faut laisser du temps au DHT pour calculer l'humidité et la température
 }
 
 void loop() {
-    // notify changed value
     if (getDHTData()){ //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
-     
-            //Serial.println("Humidity, Temperature,Dew Point,Heat Index");
-            Serial.println(String(sHumidity+","+sTemp+","+sDew+","+sHeat));
-           // }
+            
+		Serial.println(String(sHumidity+","+sTemp+","+sDew+","+sHeat));
+
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
                 //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
                 pHumidity->setValue((uint8_t*)&dHumidity, sizeof(dHumidity)); 
@@ -253,7 +217,7 @@ void loop() {
                 pHeat->notify();
                 
             }
-            delay(2000); // pour le DHT il faut au moins 2 secondes
+            delay(2000); // The DHT need about 2 secondes to calculate new values : pour le DHT il faut au moins 2 secondes
 
     }
         
@@ -261,12 +225,13 @@ void loop() {
     if (!deviceConnected && oldDeviceConnected) {
         delay(500); // give the bluetooth stack the chance to get things ready : si le client n'est pas connecté le capteur retente de proposer des données
         pServer->startAdvertising(); // restart advertising
-        Serial.println("start advertising");
+        Serial.println("Restart advertising");
         oldDeviceConnected = deviceConnected;
     }
     // connecting
     if (deviceConnected && !oldDeviceConnected) {
         // do stuff here on connecting
+	Serial.println("Connection to a BLE client done");	
         oldDeviceConnected = deviceConnected;
     }
    
