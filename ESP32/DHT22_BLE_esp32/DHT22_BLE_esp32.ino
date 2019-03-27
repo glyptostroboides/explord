@@ -12,6 +12,9 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
 #define DHTDataPin 17
 #define DHTPowerPin 4
 
+/*Define the pin for builtin LED : Definition de la broche pour la led intégrée 22 et non 21 comme l'indique le peu de documentation*/
+#define LED 22
+
 /* BLE for ESP32 default library on ESP32-arduino framework
 / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
 #include <BLEDevice.h>
@@ -143,9 +146,11 @@ bool getDHTData() {
 
 
 void setup() {
+  pinMode(LED,OUTPUT);
   /*
    * Define the power pin for the DHT in order to get it of when not connected
-   * Définition de la broche pour alimenter le DHT quand il n'est pas utilisé mais seulement lorsque le capteur est en charge
+   * Définition de la broche pour alimenter le DHT quand il est utilisé mais pas lorsque le capteur est en charge
+   * Cela permet également de téléverser avec le composant soudé sinon il faudrait le déconnecter
    */
   pinMode(DHTPowerPin,OUTPUT);
   digitalWrite(DHTPowerPin,HIGH); // power on the DHT
@@ -216,7 +221,7 @@ void setup() {
 
 void loop() {
     if (getDHTData()){ //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
-                
+                digitalWrite(LED,HIGH);
 		            Serial.println(String(sHumidity+","+sTemp+","+sDew+","+sHeat));
 
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
@@ -231,7 +236,9 @@ void loop() {
                 pHeat->notify();
                 
             }
-            delay(2000); // The DHT need about 2 seconds to calculate new values : pour le DHT il faut au moins 2 secondes
+            delay(100);
+            digitalWrite(LED,LOW);
+            delay(1900); // The DHT need about 2 seconds to calculate new values : pour le DHT il faut au moins 2 secondes
 
     }
         
