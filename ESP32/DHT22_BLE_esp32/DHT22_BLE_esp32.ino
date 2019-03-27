@@ -4,6 +4,14 @@ Datas sended are : humidity, temperature, dew point and heat index.
 The UUID used are the one from the BLE GATT specifications : https://www.bluetooth.com/specifications/gatt
 */ 
 
+/*
+ * Define the pins used for the datas and power of DHT22
+ * Définition de la broche utilisée pour les données du DHT22
+ */
+ 
+#define DHTDataPin 17
+#define DHTPowerPin 4
+
 /* BLE for ESP32 default library on ESP32-arduino framework
 / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
 #include <BLEDevice.h>
@@ -135,6 +143,12 @@ bool getDHTData() {
 
 
 void setup() {
+  /*
+   * Define the power pin for the DHT in order to get it of when not connected
+   * Définition de la broche pour alimenter le DHT quand il n'est pas utilisé mais seulement lorsque le capteur est en charge
+   */
+  pinMode(DHTPowerPin,OUTPUT);
+  digitalWrite(DHTPowerPin,HIGH); // power on the DHT
   /* Init the serial connection through USB
    * Demarrage de la connection serie a travers le port USB
    */
@@ -142,7 +156,7 @@ void setup() {
   
   /* Init the I2C connection to the DHT sensor
    */
-    dht.setup(17, DHTesp::DHT22); // pin for the data DHT I2C connection, then type of sensor DHT11, DHT22 etc...
+    dht.setup(DHTDataPin, DHTesp::DHT22); // pin for the data DHT I2C connection, then type of sensor DHT11, DHT22 etc...
 
     //Init the BLE Server : Demarrage du serveur BLE
   // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
