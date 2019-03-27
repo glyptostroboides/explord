@@ -1,0 +1,273 @@
+/*
+This program send DHT22 data through BLE with an ESP32.
+Datas sended are : humidity, temperature, dew point and heat index.
+The UUID used are the one from the BLE GATT specifications : https://www.bluetooth.com/specifications/gatt
+*/ 
+
+/* BLE for ESP32 default library on ESP32-arduino framework
+/ Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+
+/* DHT Data
+ *  The DHT library provide two value from the sensor temperature and humidity with one decimal.
+ *  The library provide also computed heat index and dew point which are also exposed through BLE
+ */
+
+#include <DHTesp.h>
+  
+  DHTesp dht;
+  TempAndHumidity DHTData;
+  uint16_t dHumidity;
+  int16_t dTemp; 
+  int16_t dHeat;
+  int16_t dDew;
+
+  String sTemp;
+  String sHumidity;
+  String sHeat;
+  String sDew;
+/*
+//HardwareSerial Serial1(1); // RX (need interrupt capacity), TX, Serial1 is already defined in HardwareSerial.h
+String LoxD = ""; // init the value for the LOX data string
+
+//Define the value to collect from the LoxD
+//unsigned int dPPO2; // O2 partial pressure in millibar with 1 decimal converted to Pascals with no decimals
+uint32_t dPPO2;
+
+//signed short dTemp; // temperature in Celsius degrees with 2 decimals : signed value
+int16_t dTemp; 
+
+//unsigned int dPressure; // pressure in millibar with 0 decimal converted to Pascals with no decimals
+uint32_t dPressure;
+
+//unsigned int dO2; //%  O2 rate in percent with 2 decimals
+uint16_t dO2;
+// sO2 = "000.00" : possible peut être pour reserver directement l'espace necessaire pour stocker la donnee
+*/
+/*
+ *Server pointer and BLE characteristics pointers
+ *Declaration du serveur et des pointeurs pour les caracteristiques BLE 
+ */
+BLEServer* pServer = NULL;
+BLECharacteristic* pTemp = NULL;
+BLECharacteristic* pHumidity = NULL;
+BLECharacteristic* pHeat = NULL;
+BLECharacteristic* pDew = NULL;
+
+/*
+ *Value to store the BLE server connection state
+ *Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non
+ */
+bool deviceConnected = false;
+bool oldDeviceConnected = false;
+
+/*
+ *Format presentation descriptor
+ *Définition des format de données pour le descripteur 0x2904 conforme à la norme BLE GATT
+ */
+
+uint8_t presentationHumidity[] = {
+  0x06, // Format = 6 = "unsigned 16-bit integer"
+  0x02, // Exponent = 2
+  0xAD, // Unit = 0x27AD = "percentage" (low byte)
+  0x27, // ditto (high byte)
+  0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
+  0x00, // Description = 0 = "unknown" (low byte)
+  0x00, // ditto (high byte) 
+};
+uint8_t presentationTemp[] = {
+  0x0E, // Format = E = "signed 16-bit integer"
+  0x02, // Exponent = 2
+  0x2F, // Unit = 0x272F = "Celsius temperature" (low byte)
+  0x27, // ditto (high byte)
+  0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
+  0x00, // Description = 0 = "unknown" (low byte)
+  0x00, // ditto (high byte) 
+};
+uint8_t presentationDew[] = {
+  0x0E, // Format = E = "signed 16-bit integer"
+  0x02, // Exponent = 2
+  0x2F, // Unit = 0x272F = "Celsius temperature" (low byte)
+  0x27, // ditto (high byte)
+  0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
+  0x00, // Description = 0 = "unknown" (low byte)
+  0x00, // ditto (high byte) 
+};
+uint8_t presentationHeat[] = {
+  0x06, // Format = E = "signed 16-bit integer"
+  0x02, // Exponent = 2
+  0x2F, // Unit = 0x272F = "Celsius temperature" (low byte)
+  0x27, // ditto (high byte)
+  0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
+  0x00, // Description = 0 = "unknown" (low byte)
+  0x00, // ditto (high byte) 
+};
+
+
+
+// Definitions des valeurs pour le service "donnees environnementales" conforme aux definitions de la norme BLE
+
+#define ENV_SERVICE_UUID  BLEUUID((uint16_t)0x181A) // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
+#define TEMP_UUID  BLEUUID((uint16_t)0x2A6E) // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
+#define HUMIDITY_UUID BLEUUID((uint16_t)0x2A6F) // 0x2A6F : relative humidity in % correspond a un : uint16 ,Decimal, -1, soit 2 char 
+#define DEW_UUID BLEUUID((uint16_t)0x2A7B) // Dew Point in Celsius degrees with two decimals int
+#define HEAT_UUID BLEUUID((uint16_t)0x2A7A) // Heat Index in Celsius degrees
+
+
+/*
+ * Callbacks fontion launched by the server when a connection or a disconnection occur
+ * Fonction definie par la bibliotheque qui est lancée lorsque l'état du serveur BLE change : événement : connexion et deconnexion
+ */
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      deviceConnected = true;
+      BLEDevice::startAdvertising(); // needed to support multi-connect, that mean more than one client connected to server
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      deviceConnected = false;
+    }
+};
+
+bool getDHTData() {
+  DHTData = dht.getTempAndHumidity();
+  if (dht.getStatus() != 0) {
+    Serial.println("DHT11 error status: " + String(dht.getStatusString()));
+    return false;
+  }
+  dTemp= (int16_t) DHTData.temperature*100;
+  dHumidity= (uint16_t) DHTData.humidity*100;
+  dHeat= (int16_t) dht.computeHeatIndex(DHTData.temperature, DHTData.humidity);
+  dDew= (int16_t) dht.computeDewPoint(DHTData.temperature, DHTData.humidity);
+  sTemp=String(DHTData.temperature);
+  sHumidity=String(DHTData.humidity); 
+  sHeat= String (dht.computeHeatIndex(DHTData.temperature, DHTData.humidity));
+  sDew= String(dht.computeDewPoint(DHTData.temperature, DHTData.humidity));
+  
+  
+  return true;
+}
+
+
+
+void setup() {
+  /* Init the serial connection through USB
+   * Demarrage de la connection serie a travers le port USB
+   */
+  Serial.begin(115200);
+  
+  /* Init the I2C connection to the DHT sensor
+   */
+    dht.setup(17, DHTesp::DHT22); // pin for the data DHT I2C connection, then type of sensor DHT11, DHT22 etc...
+
+    //Init the BLE Server : Demarrage du serveur BLE
+  // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
+  BLEDevice::init("ExplordDHT");
+
+  // Create the BLE Server : Creation du serveur BLE et mise en place de la fonction de callback pour savoir si le serveur est connecté et doit commencer à envoyer des notifications
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
+  // Create the BLE Service for the Environnemental Sensing Data : Creation du service pour les données environnementales
+  BLEService *pEnvService = pServer->createService(ENV_SERVICE_UUID);
+
+  // Create BLE Characteristics : Creation des caractéristiques dans le service des données environnementales
+  //pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_INDICATE );
+  pHumidity = pEnvService->createCharacteristic(HUMIDITY_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
+  pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
+  pDew = pEnvService->createCharacteristic(DEW_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY  );
+  pHeat = pEnvService->createCharacteristic(HEAT_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
+  
+ 
+  // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
+  // Create a BLE Descriptor with BLE2902 (which manage the Notify settings)
+  pHumidity->addDescriptor(new BLE2902());
+  pTemp->addDescriptor(new BLE2902());
+  pDew->addDescriptor(new BLE2902());
+  pHeat->addDescriptor(new BLE2902());
+  
+
+ 
+  // Define a Descriptor for the name of the value for PPO2 and O2 : Definition des descripteurs contenant le nom des valeurs présentées par le serveur
+ /* BLEDescriptor *namePPO2Descriptor = new BLEDescriptor((uint16_t)0x2901); // Characteristic User Description : pour indiquer le nom de la valeur mesurée
+  pPPO2->addDescriptor(namePPO2Descriptor);
+  namePPO2Descriptor->setValue(PPO2_CHARACTERISTIC_DESCRIPTION);
+  
+  BLEDescriptor *nameO2Descriptor = new BLEDescriptor((uint16_t)0x2901); // Characteristic User Description : pour indiquer le nom de la valeur mesurée
+  pO2->addDescriptor(nameO2Descriptor);
+  nameO2Descriptor->setValue(O2_CHARACTERISTIC_DESCRIPTION);*/
+  
+  
+ 
+ //Define the presentation format for each characteristic ( Characteristic Presentation Format) : Définition des descripteurs contenant les informations sur la presentation des valeurs mesurées
+  BLEDescriptor *presentationHumidityDescriptor = new BLEDescriptor((uint16_t)0x2904);
+  pHumidity->addDescriptor(presentationHumidityDescriptor);
+  presentationHumidityDescriptor->setValue(presentationHumidity, sizeof presentationHumidity);
+ 
+  BLEDescriptor *presentationTempDescriptor = new BLEDescriptor((uint16_t)0x2904);
+  pTemp->addDescriptor(presentationTempDescriptor);
+  presentationTempDescriptor->setValue(presentationTemp, sizeof presentationTemp);
+
+  BLEDescriptor *presentationDewDescriptor = new BLEDescriptor((uint16_t)0x2904);
+  pDew->addDescriptor(presentationDewDescriptor);
+  presentationDewDescriptor->setValue(presentationDew, sizeof presentationDew);
+
+  BLEDescriptor *presentationHeatDescriptor = new BLEDescriptor((uint16_t)0x2904);
+  pHeat->addDescriptor(presentationHeatDescriptor);
+  presentationHeatDescriptor->setValue(presentationHeat, sizeof presentationHeat);
+
+  
+  // Start the service : Demarrage des services sur les données environnementales
+  pEnvService->start();
+
+  // Start advertising : Demarrage des notifications pour le client
+  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising->addServiceUUID(ENV_SERVICE_UUID);
+  pAdvertising->setScanResponse(false);
+  pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
+  BLEDevice::startAdvertising();
+  //Serial.println("Waiting a client connection to notify... : En attente d'une connection BLE pour notifier");
+  Serial.println("Humidity, Temperature,Dew Point,Heat Index");
+  delay(2000); // Il faut laisser du temps au DHT pour calculer l'humidité et la température
+}
+
+void loop() {
+    // notify changed value
+    if (getDHTData()){ //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
+     
+            //Serial.println("Humidity, Temperature,Dew Point,Heat Index");
+            Serial.println(String(sHumidity+","+sTemp+","+sDew+","+sHeat));
+           // }
+      if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
+                //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
+                pHumidity->setValue((uint8_t*)&dHumidity, sizeof(dHumidity)); 
+                pHumidity->notify();
+                pTemp->setValue((uint8_t*)&dTemp, sizeof(dTemp)); // changed to work with temperature characteristic was 4 before
+                pTemp->notify();
+                pDew->setValue((uint8_t*)&dDew, sizeof(dDew)); 
+                pDew->notify();
+                pHeat->setValue((uint8_t*)&dHeat,  sizeof(dHeat)); 
+                pHeat->notify();
+                
+            }
+            delay(2000); // pour le DHT il faut au moins 2 secondes
+
+    }
+        
+    // disconnecting
+    if (!deviceConnected && oldDeviceConnected) {
+        delay(500); // give the bluetooth stack the chance to get things ready : si le client n'est pas connecté le capteur retente de proposer des données
+        pServer->startAdvertising(); // restart advertising
+        Serial.println("start advertising");
+        oldDeviceConnected = deviceConnected;
+    }
+    // connecting
+    if (deviceConnected && !oldDeviceConnected) {
+        // do stuff here on connecting
+        oldDeviceConnected = deviceConnected;
+    }
+   
+}
