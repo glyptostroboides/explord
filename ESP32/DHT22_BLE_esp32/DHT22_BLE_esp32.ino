@@ -1,16 +1,12 @@
 /*
-This program send DHT22 data through BLE with an ESP32.
-Datas sended are : humidity, temperature, dew point and heat index.
+This program send environmental data through BLE with an ESP32.
 The UUID used are the one from the BLE GATT specifications : https://www.bluetooth.com/specifications/gatt
 */ 
 
 /*
- * Define the pins used for the datas and power of DHT22
- * Définition de la broche utilisée pour les données du DHT22
+ * This part is not specific to any sensor. BLE Server and Services that are used by all sensorts
+ * 
  */
- 
-#define DHTDataPin 17
-#define DHTPowerPin 4
 
 /*Define the pin for builtin LED : Definition de la broche pour la led intégrée 22 et non 21 comme l'indique le peu de documentation*/
 #define LED 22
@@ -22,10 +18,53 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
+
+/*
+ *BLE Server pointer and Environnmental Sensing Service
+ *Declaration du serveur BLE et du service environnemental
+ */
+BLEServer* pServer = NULL;
+static BLEService *pEnvService = NULL;
+/*
+ *Value to store the BLE server connection state
+ *Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
+ */
+ 
+bool deviceConnected = false;
+bool oldDeviceConnected = false;
+
+/*
+ * Callbacks fontion launched by the server when a connection or a disconnection occur
+ * Fonction definie par la bibliotheque qui est lancée lorsque l'état du serveur BLE change : événement : connexion et deconnexion
+ */
+class MyServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      deviceConnected = true;
+      //BLEDevice::startAdvertising(); // needed to support multi-connect, that mean more than one client connected to server, must be commented if using BLE 4.0 device
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      deviceConnected = false;
+    }
+};
+
 /* DHT Data
  *  The DHT library provide two values from the sensor temperature and humidity with one decimal.
  *  The library provide also computed heat index and dew point which are also exposed through BLE
+ *  Datas sended are : humidity, temperature, dew point and heat index.
+
  */
+
+/*
+ * Define the pins used for the datas and power of DHT22
+ * Définition de la broche utilisée pour les données du DHT22
+ */
+ 
+#define DHTDataPin 17
+#define DHTPowerPin 4
+
+const uint16_t DHTDelay = 1000;
+const String DHTDeviceName = "ExplordDHT";
 
 #include <DHTesp.h>
   
@@ -42,22 +81,27 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
   String sDew;
 
 /*
- *Server pointer and BLE characteristics pointers
- *Declaration du serveur et des pointeurs pour les caracteristiques BLE 
+ *Server pointer and BLE characteristics pointersfor the DHT
+ *Declaration des pointeurs pour les caracteristiques BLE 
  */
-BLEServer* pServer = NULL;
-static BLEService *pEnvService = NULL;
+
 static BLECharacteristic* pTemp = NULL;
 static BLECharacteristic* pHumidity = NULL;
 static BLECharacteristic* pHeat = NULL;
 static BLECharacteristic* pDew = NULL;
 
-/*
- *Value to store the BLE server connection state
- *Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
- */
-bool deviceConnected = false;
-bool oldDeviceConnected = false;
+
+
+// Definitions des valeurs pour le service "donnees environnementales" conforme aux definitions de la norme BLE
+
+#define ENV_SERVICE_UUID  BLEUUID((uint16_t)0x181A) // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
+#define TEMP_UUID  BLEUUID((uint16_t)0x2A6E) // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
+#define HUMIDITY_UUID BLEUUID((uint16_t)0x2A6F) // 0x2A6F : relative humidity in % correspond a un : uint16 ,Decimal, -1, soit 2 char 
+#define DEW_UUID BLEUUID((uint16_t)0x2A7B) // Dew Point in Celsius degrees with two decimals int
+#define HEAT_UUID BLEUUID((uint16_t)0x2A7A) // Heat Index in Celsius degrees
+
+
+
 
 /*
  *Format presentation descriptor
@@ -102,30 +146,13 @@ uint8_t presentationHeat[] = {
 };
 
 
-
-// Definitions des valeurs pour le service "donnees environnementales" conforme aux definitions de la norme BLE
-
-#define ENV_SERVICE_UUID  BLEUUID((uint16_t)0x181A) // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
-#define TEMP_UUID  BLEUUID((uint16_t)0x2A6E) // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
-#define HUMIDITY_UUID BLEUUID((uint16_t)0x2A6F) // 0x2A6F : relative humidity in % correspond a un : uint16 ,Decimal, -1, soit 2 char 
-#define DEW_UUID BLEUUID((uint16_t)0x2A7B) // Dew Point in Celsius degrees with two decimals int
-#define HEAT_UUID BLEUUID((uint16_t)0x2A7A) // Heat Index in Celsius degrees
-
-
-/*
- * Callbacks fontion launched by the server when a connection or a disconnection occur
- * Fonction definie par la bibliotheque qui est lancée lorsque l'état du serveur BLE change : événement : connexion et deconnexion
- */
-class MyServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
-      deviceConnected = true;
-      //BLEDevice::startAdvertising(); // needed to support multi-connect, that mean more than one client connected to server, must be commented if using BLE 4.0 device
-    };
-
-    void onDisconnect(BLEServer* pServer) {
-      deviceConnected = false;
-    }
-};
+void powerOnDHT() {
+  /*
+   * Power On the DHT when in use
+   */
+  pinMode(DHTPowerPin,OUTPUT);
+  digitalWrite(DHTPowerPin,HIGH); // power on the DHT
+}
 
 void initDHT() {
    /* Init the I2C connection to the DHT sensor
@@ -214,8 +241,7 @@ void setup() {
    * Définition de la broche pour alimenter le DHT quand il est utilisé mais pas lorsque le capteur est en charge
    * Cela permet également de téléverser avec le composant soudé sinon il faudrait le déconnecter
    */
-  pinMode(DHTPowerPin,OUTPUT);
-  digitalWrite(DHTPowerPin,HIGH); // power on the DHT
+  powerOnDHT();
   /* Init the serial connection through USB
    * Demarrage de la connection serie a travers le port USB
    */
@@ -225,7 +251,7 @@ void setup() {
 
     //Init the BLE Server : Demarrage du serveur BLE
   // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
-  BLEDevice::init("ExplordDHT");
+  BLEDevice::init(DHTDeviceName.c_str());
 
   // Create the BLE Server : Creation du serveur BLE et mise en place de la fonction de callback pour savoir si le serveur est connecté et doit commencer à envoyer des notifications
   pServer = BLEDevice::createServer();
@@ -247,7 +273,7 @@ void setup() {
   BLEDevice::startAdvertising();
   //Serial.println("Waiting a client connection to notify... : En attente d'une connection BLE pour notifier");
   printDHTSerialHeader();
-  delay(2000); // The DHT need about 2 secondes to calculate new values : Il faut laisser du temps au DHT pour calculer l'humidité et la température
+  delay(DHTDelay); // The DHT need about 1 second to calculate new values : Il faut laisser du temps au DHT pour calculer l'humidité et la température
 }
 
 void loop() {
@@ -261,7 +287,7 @@ void loop() {
             }
             delay(100);
             digitalWrite(LED,LOW);
-            delay(1900); // The DHT need about 2 seconds to calculate new values : pour le DHT il faut au moins 2 secondes
+            delay(DHTDelay-100); // The DHT22 need about 1 second to calculate new values : pour le DHT22 il faut au moins 1 seconde
 
     }
         
