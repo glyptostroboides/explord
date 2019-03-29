@@ -46,10 +46,11 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
  *Declaration du serveur et des pointeurs pour les caracteristiques BLE 
  */
 BLEServer* pServer = NULL;
-BLECharacteristic* pTemp = NULL;
-BLECharacteristic* pHumidity = NULL;
-BLECharacteristic* pHeat = NULL;
-BLECharacteristic* pDew = NULL;
+static BLEService *pEnvService = NULL;
+static BLECharacteristic* pTemp = NULL;
+static BLECharacteristic* pHumidity = NULL;
+static BLECharacteristic* pHeat = NULL;
+static BLECharacteristic* pDew = NULL;
 
 /*
  *Value to store the BLE server connection state
@@ -126,6 +127,13 @@ class MyServerCallbacks: public BLEServerCallbacks {
     }
 };
 
+void initDHT() {
+   /* Init the I2C connection to the DHT sensor
+   */
+    dht.setup(DHTDataPin, DHTesp::DHT22); // pin for the data DHT I2C connection, then type of sensor DHT11, DHT22 etc...
+
+}
+
 bool getDHTData() {
   DHTData = dht.getTempAndHumidity(); //get the temperature and humidity
   if (dht.getStatus() != 0) {
@@ -143,37 +151,8 @@ bool getDHTData() {
   return true;
 }
 
-
-
-void setup() {
-  pinMode(LED,OUTPUT);
-  /*
-   * Define the power pin for the DHT in order to get it of when not connected
-   * Définition de la broche pour alimenter le DHT quand il est utilisé mais pas lorsque le capteur est en charge
-   * Cela permet également de téléverser avec le composant soudé sinon il faudrait le déconnecter
-   */
-  pinMode(DHTPowerPin,OUTPUT);
-  digitalWrite(DHTPowerPin,HIGH); // power on the DHT
-  /* Init the serial connection through USB
-   * Demarrage de la connection serie a travers le port USB
-   */
-  Serial.begin(115200);
-  
-  /* Init the I2C connection to the DHT sensor
-   */
-    dht.setup(DHTDataPin, DHTesp::DHT22); // pin for the data DHT I2C connection, then type of sensor DHT11, DHT22 etc...
-
-    //Init the BLE Server : Demarrage du serveur BLE
-  // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
-  BLEDevice::init("ExplordDHT");
-
-  // Create the BLE Server : Creation du serveur BLE et mise en place de la fonction de callback pour savoir si le serveur est connecté et doit commencer à envoyer des notifications
-  pServer = BLEDevice::createServer();
-  pServer->setCallbacks(new MyServerCallbacks());
-
-  // Create the BLE Service for the Environnemental Sensing Data : Creation du service pour les données environnementales
-  BLEService *pEnvService = pServer->createService(ENV_SERVICE_UUID);
-
+void configDHTEnvService() {
+ 
   // Create BLE Characteristics : Creation des caractéristiques dans le service des données environnementales
   //pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_INDICATE );
   pHumidity = pEnvService->createCharacteristic(HUMIDITY_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
@@ -203,8 +182,60 @@ void setup() {
   BLEDescriptor *presentationHeatDescriptor = new BLEDescriptor((uint16_t)0x2904);
   pHeat->addDescriptor(presentationHeatDescriptor);
   presentationHeatDescriptor->setValue(presentationHeat, sizeof presentationHeat);
+}
 
+void printDHTSerialHeader() {
+  Serial.println("Humidity, Temperature,Dew Point,Heat Index");
+
+}
+
+void printDHTSerialData() {
+  Serial.println(String(sHumidity+","+sTemp+","+sDew+","+sHeat));
+}
+
+void setDHTBLEData() {
+  //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
+  pHumidity->setValue((uint8_t*)&dHumidity, sizeof(dHumidity)); 
+  pHumidity->notify();
+  pTemp->setValue((uint8_t*)&dTemp, sizeof(dTemp)); // changed to work with temperature characteristic was 4 before
+  pTemp->notify();
+  pDew->setValue((uint8_t*)&dDew, sizeof(dDew)); 
+  pDew->notify();
+  pHeat->setValue((uint8_t*)&dHeat,  sizeof(dHeat)); 
+  pHeat->notify();
+}
+
+
+
+void setup() {
+  pinMode(LED,OUTPUT);
+  /*
+   * Define the power pin for the DHT in order to get it of when not connected
+   * Définition de la broche pour alimenter le DHT quand il est utilisé mais pas lorsque le capteur est en charge
+   * Cela permet également de téléverser avec le composant soudé sinon il faudrait le déconnecter
+   */
+  pinMode(DHTPowerPin,OUTPUT);
+  digitalWrite(DHTPowerPin,HIGH); // power on the DHT
+  /* Init the serial connection through USB
+   * Demarrage de la connection serie a travers le port USB
+   */
+  Serial.begin(115200);
   
+  initDHT();
+
+    //Init the BLE Server : Demarrage du serveur BLE
+  // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
+  BLEDevice::init("ExplordDHT");
+
+  // Create the BLE Server : Creation du serveur BLE et mise en place de la fonction de callback pour savoir si le serveur est connecté et doit commencer à envoyer des notifications
+  pServer = BLEDevice::createServer();
+  pServer->setCallbacks(new MyServerCallbacks());
+
+  // Create the BLE Service for the Environnemental Sensing Data : Creation du service pour les données environnementales
+  pEnvService = pServer->createService(ENV_SERVICE_UUID);
+  
+  configDHTEnvService();
+   
   // Start the service : Demarrage des services sur les données environnementales
   pEnvService->start();
 
@@ -215,26 +246,18 @@ void setup() {
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   BLEDevice::startAdvertising();
   //Serial.println("Waiting a client connection to notify... : En attente d'une connection BLE pour notifier");
-  Serial.println("Humidity, Temperature,Dew Point,Heat Index");
+  printDHTSerialHeader();
   delay(2000); // The DHT need about 2 secondes to calculate new values : Il faut laisser du temps au DHT pour calculer l'humidité et la température
 }
 
 void loop() {
     if (getDHTData()){ //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
                 digitalWrite(LED,HIGH);
-		            Serial.println(String(sHumidity+","+sTemp+","+sDew+","+sHeat));
+		            printDHTSerialData();
 
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
                 //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
-                pHumidity->setValue((uint8_t*)&dHumidity, sizeof(dHumidity)); 
-                pHumidity->notify();
-                pTemp->setValue((uint8_t*)&dTemp, sizeof(dTemp)); // changed to work with temperature characteristic was 4 before
-                pTemp->notify();
-                pDew->setValue((uint8_t*)&dDew, sizeof(dDew)); 
-                pDew->notify();
-                pHeat->setValue((uint8_t*)&dHeat,  sizeof(dHeat)); 
-                pHeat->notify();
-                
+                setDHTBLEData();  
             }
             delay(100);
             digitalWrite(LED,LOW);
