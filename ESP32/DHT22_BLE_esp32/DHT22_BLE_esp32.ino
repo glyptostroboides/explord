@@ -11,6 +11,10 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
 /*Define the pin for builtin LED : Definition de la broche pour la led intégrée 22 et non 21 comme l'indique le peu de documentation*/
 #define LED 22
 
+/*Define a value for the delay between each mesure : Définition de l'intervalle entre deux mesures en millisecondes*/
+
+uint16_t readingsDelay = 1000;
+
 /* BLE for ESP32 default library on ESP32-arduino framework
 / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
 #include <BLEDevice.h>
@@ -63,7 +67,6 @@ class MyServerCallbacks: public BLEServerCallbacks {
 #define DHTDataPin 17
 #define DHTPowerPin 4
 
-const uint16_t DHTDelay = 1000;
 const String DHTDeviceName = "ExplordDHT";
 
 #include <DHTesp.h>
@@ -273,7 +276,7 @@ void setup() {
   BLEDevice::startAdvertising();
   //Serial.println("Waiting a client connection to notify... : En attente d'une connection BLE pour notifier");
   printDHTSerialHeader();
-  delay(DHTDelay); // The DHT need about 1 second to calculate new values : Il faut laisser du temps au DHT pour calculer l'humidité et la température
+  delay(readingsDelay); // The DHT need about 1 second to calculate new values : Il faut laisser du temps au DHT pour calculer l'humidité et la température
 }
 
 void loop() {
@@ -287,7 +290,7 @@ void loop() {
             }
             delay(100);
             digitalWrite(LED,LOW);
-            delay(DHTDelay-100); // The DHT22 need about 1 second to calculate new values : pour le DHT22 il faut au moins 1 seconde
+            delay(readingsDelay-100); // The DHT22 need about 1 second to calculate new values : pour le DHT22 il faut au moins 1 seconde
 
     }
         
