@@ -57,9 +57,18 @@ class MyServerCallbacks: public BLEServerCallbacks {
     }
 };
 
+/*
+#ifdef DHT22
 #include "DHT22Sensor.h"
 
 DHT22Sensor Sensor;
+#endif
+*/
+//#ifdef LOX02
+#include "LOX02Sensor.h"
+
+LOX02Sensor Sensor;
+//#endif
 
 void setup() {
   
