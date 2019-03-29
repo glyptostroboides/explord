@@ -8,8 +8,8 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
  * 
  */
 
-/*Define the pin for builtin LED : Definition de la broche pour la led intégrée 22 et non 21 comme l'indique le peu de documentation*/
-#define LED 22
+/*Define the pin for builtin LEDPin : Definition de la broche pour la  intégrée 22 et non 21 comme l'indique le peu de documentation*/
+const int LEDPin = 22;
 
 /*Define a value for the delay between each mesure : Définition de l'intervalle entre deux mesures en millisecondes*/
 
@@ -26,7 +26,7 @@ String deviceNumber = "01"; //added to the Sensor specific device name
 
 /*Define the UUID for the environnmental sensing service used by all sensors*/
 
-#define ENV_SERVICE_UUID  BLEUUID((uint16_t)0x181A) // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
+const BLEUUID EnvServiceUUID = BLEUUID((uint16_t)0x181A); // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
 
 /*
  *BLE Server pointer and Environnmental Sensing Service
@@ -255,7 +255,7 @@ DHT22Sensor Sensor;
 
 void setup() {
   
-  pinMode(LED,OUTPUT);
+  pinMode(LEDPin,OUTPUT);
   /*
    * Define the power pin for the DHT in order to get it of when not connected
    * Définition de la broche pour alimenter le DHT quand il est utilisé mais pas lorsque le capteur est en charge
@@ -278,7 +278,7 @@ void setup() {
   pServer->setCallbacks(new MyServerCallbacks());
 
   // Create the BLE Service for the Environnemental Sensing Data : Creation du service pour les données environnementales
-  pEnvService = pServer->createService(ENV_SERVICE_UUID);
+  pEnvService = pServer->createService(EnvServiceUUID);
   
   Sensor.configEnvService();
    
@@ -287,7 +287,7 @@ void setup() {
 
   // Start advertising : Demarrage des notifications pour le client
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-  pAdvertising->addServiceUUID(ENV_SERVICE_UUID);
+  pAdvertising->addServiceUUID(EnvServiceUUID);
   pAdvertising->setScanResponse(false);
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   BLEDevice::startAdvertising();
@@ -298,7 +298,7 @@ void setup() {
 
 void loop() {
     if (Sensor.getData()){ //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
-                digitalWrite(LED,HIGH);
+                digitalWrite(LEDPin,HIGH);
 		            Sensor.printSerialData();
 
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
@@ -306,7 +306,7 @@ void loop() {
                 Sensor.setBLEData();  
             }
             delay(100);
-            digitalWrite(LED,LOW);
+            digitalWrite(LEDPin,LOW);
             delay(readingsDelay-100); // The DHT22 need about 1 second to calculate new values : pour le DHT22 il faut au moins 1 seconde
 
     }
