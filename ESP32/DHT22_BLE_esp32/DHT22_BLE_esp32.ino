@@ -14,6 +14,8 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
 /*Define a value for the delay between each mesure : Définition de l'intervalle entre deux mesures en millisecondes*/
 
 uint16_t readingsDelay = 1000;
+String deviceName = "Explord";
+String deviceNumber = "01"; //added to the Sensor specific device name
 
 /* BLE for ESP32 default library on ESP32-arduino framework
 / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
@@ -70,7 +72,7 @@ class MyServerCallbacks: public BLEServerCallbacks {
 #define DHTDataPin 17
 #define DHTPowerPin 4
 
-const String DHTDeviceName = "ExplordDHT";
+const String DHTSensorName = "DHT";
 
 #include <DHTesp.h>
   
@@ -258,7 +260,7 @@ void setup() {
 
     //Init the BLE Server : Demarrage du serveur BLE
   // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
-  BLEDevice::init(DHTDeviceName.c_str());
+  BLEDevice::init((deviceName+DHTSensorName+"-"+deviceNumber).c_str());
 
   // Create the BLE Server : Creation du serveur BLE et mise en place de la fonction de callback pour savoir si le serveur est connecté et doit commencer à envoyer des notifications
   pServer = BLEDevice::createServer();
