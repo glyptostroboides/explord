@@ -158,7 +158,7 @@ void setup() {
   /* Init the UART connection to the Luminox sensor
    *  Baud Rate, Format,RX,TX)
    */
-  Serial1.begin(9600,SERIAL_8N1,22,21); // RX then TX (connect luminox pin 22 of ESP32 to RX of LOX, and pin 21 of ESP32 to TX of LOX)
+  Serial1.begin(9600,SERIAL_8N1,19,21); // RX then TX (connect luminox pin 19 of ESP32 to RX of LOX, and pin 21 of ESP32 to TX of LOX)
 
   /*
    * Mise en reserve d'espace pour stocker la chaine de caracteres emise par le capteur LOX-02
