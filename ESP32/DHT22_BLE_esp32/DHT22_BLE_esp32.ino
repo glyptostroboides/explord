@@ -22,6 +22,9 @@ uint16_t readingsDelay = 1000;
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
+/*Define the UUID for the environnmental sensing service used by all sensors*/
+
+#define ENV_SERVICE_UUID  BLEUUID((uint16_t)0x181A) // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
 
 /*
  *BLE Server pointer and Environnmental Sensing Service
@@ -84,7 +87,7 @@ const String DHTDeviceName = "ExplordDHT";
   String sDew;
 
 /*
- *Server pointer and BLE characteristics pointersfor the DHT
+ *BLE characteristics pointers for the DHT
  *Declaration des pointeurs pour les caracteristiques BLE 
  */
 
@@ -95,9 +98,11 @@ static BLECharacteristic* pDew = NULL;
 
 
 
-// Definitions des valeurs pour le service "donnees environnementales" conforme aux definitions de la norme BLE
+/* 
+ *  Define the UUID for the  characteritic used by the DHT Sensor
+ *  Definitions des identifiants pour le DHT pour le service "donnees environnementales" conforme aux definitions de la norme BLE
+ */
 
-#define ENV_SERVICE_UUID  BLEUUID((uint16_t)0x181A) // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
 #define TEMP_UUID  BLEUUID((uint16_t)0x2A6E) // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
 #define HUMIDITY_UUID BLEUUID((uint16_t)0x2A6F) // 0x2A6F : relative humidity in % correspond a un : uint16 ,Decimal, -1, soit 2 char 
 #define DEW_UUID BLEUUID((uint16_t)0x2A7B) // Dew Point in Celsius degrees with two decimals int
@@ -105,10 +110,9 @@ static BLECharacteristic* pDew = NULL;
 
 
 
-
 /*
  *Format presentation descriptor
- *Définition des format de données pour le descripteur 0x2904 conforme à la norme BLE GATT
+ *Définition des format de données pour le DHT22 pour le descripteur 0x2904 conforme à la norme BLE GATT
  */
 
 uint8_t presentationHumidity[] = {
