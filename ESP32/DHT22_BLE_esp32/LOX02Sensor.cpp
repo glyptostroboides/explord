@@ -74,8 +74,9 @@ void LOX02Sensor::initSensor() {
 
 bool LOX02Sensor::getData() {
   if(Serial1.available()){ //true if new datas are sended by LOX sensor : vrai si des nouvelles données envoyées par le LOX sont disponibles
-      LoxD = Serial1.readStringUntil('\r');  // O xxxx.x T yxx.x P xxxx % xxx.xx e xxxx\r\n : format des données récupérées
-      return true;
+    delay(1);
+    LoxD = Serial1.readStringUntil('\r');  // O xxxx.x T yxx.x P xxxx % xxx.xx e xxxx\r\n : format des données récupérées
+    return true;
   }
 }
 
