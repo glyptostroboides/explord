@@ -1,6 +1,5 @@
 
 #include "LOX02Sensor.h"
-
  
 /*
  *Format presentation descriptor
@@ -44,8 +43,6 @@ uint8_t LOX02Sensor::presentationO2[] = {
   0x00, // ditto (high byte) 
 };
 
-
-
 void LOX02Sensor::powerOn() {
     /*
       * Power On the LOX02 when in use
@@ -69,9 +66,6 @@ void LOX02Sensor::initSensor() {
     LoxD.reserve(41); // just keep the bytes for the stored data : reservation de la memoire pour la chaine de caracteres : correspond au nombre de caracteres de la chaine envoyee par le LOX  
     };
 
-
-
-
 bool LOX02Sensor::getData() {
   if(Serial1.available()){ //true if new datas are sended by LOX sensor : vrai si des nouvelles données envoyées par le LOX sont disponibles
     delay(1);
@@ -83,37 +77,31 @@ bool LOX02Sensor::getData() {
 void LOX02Sensor::configEnvService(BLEService* pEnvService) {
  
   // Create BLE Characteristics : Creation des caractéristiques dans le service des données environnementales
-  //pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_INDICATE );
+  pO2 = pEnvService->createCharacteristic(O2_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  pPressure = pEnvService->createCharacteristic(PRESSURE_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   pPPO2 = pEnvService->createCharacteristic(PPO2_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
-  pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
-  pPressure = pEnvService->createCharacteristic(PRESSURE_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY  );
-  pO2 = pEnvService->createCharacteristic(O2_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
   
- 
   // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
   // Create a BLE Descriptor with BLE2902 (which manage the Notify settings)
-  pPPO2->addDescriptor(new BLE2902());
+  pO2->addDescriptor(new BLE2902());
   pTemp->addDescriptor(new BLE2902());
   pPressure->addDescriptor(new BLE2902());
-  pO2->addDescriptor(new BLE2902());
+  pPPO2->addDescriptor(new BLE2902());
   
-
- 
   // Define a Descriptor for the name of the value for PPO2 and O2 : Definition des descripteurs contenant le nom des valeurs présentées par le serveur
+  BLEDescriptor *nameO2Descriptor = new BLEDescriptor((uint16_t)0x2901); // Characteristic User Description : pour indiquer le nom de la valeur mesurée
+  pO2->addDescriptor(nameO2Descriptor);
+  nameO2Descriptor->setValue(O2_CHARACTERISTIC_DESCRIPTION.c_str());
+
   BLEDescriptor *namePPO2Descriptor = new BLEDescriptor((uint16_t)0x2901); // Characteristic User Description : pour indiquer le nom de la valeur mesurée
   pPPO2->addDescriptor(namePPO2Descriptor);
   namePPO2Descriptor->setValue(PPO2_CHARACTERISTIC_DESCRIPTION.c_str());
   
-  BLEDescriptor *nameO2Descriptor = new BLEDescriptor((uint16_t)0x2901); // Characteristic User Description : pour indiquer le nom de la valeur mesurée
-  pO2->addDescriptor(nameO2Descriptor);
-  nameO2Descriptor->setValue(O2_CHARACTERISTIC_DESCRIPTION.c_str());
-  
-  
- 
  //Define the presentation format for each characteristic ( Characteristic Presentation Format) : Définition des descripteurs contenant les informations sur la presentation des valeurs mesurées
-  BLEDescriptor *presentationPPO2Descriptor = new BLEDescriptor((uint16_t)0x2904);
-  pPPO2->addDescriptor(presentationPPO2Descriptor);
-  presentationPPO2Descriptor->setValue(presentationPPO2, sizeof presentationPPO2);
+  BLEDescriptor *presentationO2Descriptor = new BLEDescriptor((uint16_t)0x2904);
+  pO2->addDescriptor(presentationO2Descriptor);
+  presentationO2Descriptor->setValue(presentationO2, sizeof presentationO2);
  
   BLEDescriptor *presentationTempDescriptor = new BLEDescriptor((uint16_t)0x2904);
   pTemp->addDescriptor(presentationTempDescriptor);
@@ -122,16 +110,14 @@ void LOX02Sensor::configEnvService(BLEService* pEnvService) {
   BLEDescriptor *presentationPressureDescriptor = new BLEDescriptor((uint16_t)0x2904);
   pPressure->addDescriptor(presentationPressureDescriptor);
   presentationPressureDescriptor->setValue(presentationPressure, sizeof presentationPressure);
-
-  BLEDescriptor *presentationO2Descriptor = new BLEDescriptor((uint16_t)0x2904);
-  pO2->addDescriptor(presentationO2Descriptor);
-  presentationO2Descriptor->setValue(presentationO2, sizeof presentationO2);
-
+  
+  BLEDescriptor *presentationPPO2Descriptor = new BLEDescriptor((uint16_t)0x2904);
+  pPPO2->addDescriptor(presentationPPO2Descriptor);
+  presentationPPO2Descriptor->setValue(presentationPPO2, sizeof presentationPPO2);
 }
 
 void LOX02Sensor::printSerialHeader() {
-  Serial.println("Dioxygen Rate, Temperature,Pressure,Dioxygen PPressure");
-
+  Serial.println("Dioxygen Rate,Temperature,Pressure,Dioxygen PPressure");
 }
 
 void LOX02Sensor::printSerialData() {

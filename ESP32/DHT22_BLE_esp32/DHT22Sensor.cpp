@@ -2,11 +2,9 @@
  *  The DHT library provide two values from the sensor temperature and humidity with one decimal.
  *  The library provide also computed heat index and dew point which are also exposed through BLE
  *  Datas sended are : humidity, temperature, dew point and heat index.
-
  */
 
 #include "DHT22Sensor.h"
-
 
  /*Store the presentation format for each characteristics of DHT*/
 uint8_t DHT22Sensor::presentationHumidity[] = {
@@ -59,9 +57,6 @@ void DHT22Sensor::initSensor() {
    */
     dht.setup(DHTDataPin, DHTesp::DHT22); // pin for the data DHT I2C connection, then type of sensor DHT11, DHT22 etc...
     };
-
-
-
 
 bool DHT22Sensor::getData() {
   DHTData = dht.getTempAndHumidity(); //get the temperature and humidity

@@ -120,7 +120,7 @@ void loop() {
 
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
                 //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
-                Sensor.setBLEData();  
+                Sensor.setBLEData();
             }
             delay(100);
             digitalWrite(LEDPin,LOW);

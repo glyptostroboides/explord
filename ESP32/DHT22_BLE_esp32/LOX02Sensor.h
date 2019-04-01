@@ -57,8 +57,8 @@ class LOX02Sensor {
     */
     const BLEUUID TEMP_UUID = BLEUUID((uint16_t)0x2A6E); // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
     const BLEUUID PRESSURE_UUID = BLEUUID((uint16_t)0x2A6D); // 0x2A6D : Pressure in pascal correspond a un : uint32 ,Decimal, -1, soit 2 char 
-    const BLEUUID PPO2_UUID = BLEUUID("0000486b-1000-2000-3000-6578706c6f72"); // Dew Point in Celsius degrees with two decimals int
-    const BLEUUID O2_UUID = BLEUUID("0000486a-1000-2000-3000-6578706c6f72"); // Heat Index in Celsius degrees
+    const BLEUUID PPO2_UUID = BLEUUID("0000486b-1000-2000-3000-6578706c6f72"); // Custom UUID 
+    const BLEUUID O2_UUID = BLEUUID("0000486a-1000-2000-3000-6578706c6f72");
     /*
      * Define the name of the characteristics as strings
      *      
