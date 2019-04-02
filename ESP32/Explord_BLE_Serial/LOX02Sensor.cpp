@@ -47,15 +47,15 @@ void LOX02Sensor::powerOn() {
     /*
       * Power On the LOX02 when in use
       */
-    pinMode(LOX02PowerPin,OUTPUT);
-    digitalWrite(LOX02PowerPin,HIGH); // power on the LOX02
+    pinMode(PowerPin,OUTPUT);
+    digitalWrite(PowerPin,HIGH); // power on the LOX02
     };
     
 void LOX02Sensor::initSensor() {
     /* Init the UART connection to the Luminox sensor
     *  Baud Rate, Format,RX,TX)
     */
-    Serial1.begin(9600,SERIAL_8N1,LOX02RXPin,LOX02TXPin); // RX then TX (connect luminox pin 22 of ESP32 to RX of LOX, and pin 21 of ESP32 to TX of LOX)
+    Serial1.begin(9600,SERIAL_8N1,RXPin,TXPin); // RX then TX (connect luminox pin 22 of ESP32 to RX of LOX, and pin 21 of ESP32 to TX of LOX)
     
     /*
      * Mise en reserve d'espace pour stocker la chaine de caracteres emise par le capteur LOX-02
@@ -141,7 +141,7 @@ void LOX02Sensor::setBLEData() {
   //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
   pPPO2->setValue((uint8_t*)&dPPO2, sizeof(dPPO2)); 
   pPPO2->notify();
-  pTemp->setValue((uint8_t*)&dTemp, sizeof(dTemp)); // changed to work with temperature characteristic was 4 before
+  pTemp->setValue((uint8_t*)&dTemp, sizeof(dTemp));
   pTemp->notify();
   pPressure->setValue((uint8_t*)&dPressure, sizeof(dPressure)); 
   pPressure->notify();

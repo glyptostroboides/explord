@@ -11,14 +11,14 @@
   
 class LOX02Sensor {
   private :
-    const String LOX02SensorName = "LOX";
+    const String SensorName = "LOX";
     /*
     * Define the pins used for the datas and power of LOX02
     * Définition de la broche utilisée pour les données du LOX02
     */
-    const uint8_t LOX02RXPin = 19;
-    const uint8_t LOX02TXPin = 21;
-    const uint8_t LOX02PowerPin = 4;
+    const uint8_t RXPin = 19;
+    const uint8_t TXPin = 21;
+    const uint8_t PowerPin = 4;
    
     /*Store the string sended from DHT*/
     /* LUMINOX DATA
@@ -75,7 +75,7 @@ class LOX02Sensor {
     static uint8_t presentationPressure[7];
     static uint8_t presentationO2[7];
   public :
-    String getName(){return LOX02SensorName;};
+    String getName(){return SensorName;};
     void powerOn();
     void initSensor();
     bool getData();

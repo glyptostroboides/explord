@@ -65,9 +65,9 @@ DHT22Sensor Sensor;
 #endif
 */
 //#ifdef LOX02
-#include "LOX02Sensor.h"
+#include "MHZ16Sensor.h"
 
-LOX02Sensor Sensor;
+MHZ16Sensor Sensor;
 //#endif
 
 void setup() {
