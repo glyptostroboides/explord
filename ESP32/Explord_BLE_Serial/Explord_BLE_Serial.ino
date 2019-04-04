@@ -64,11 +64,12 @@ class MyServerCallbacks: public BLEServerCallbacks {
 DHT22Sensor Sensor;
 #endif
 */
-//#ifdef LOX02
+//#ifdef MHZ16
 #include "MHZ16Sensor.h"
 
 MHZ16Sensor Sensor;
 //#endif
+//#include "Explord_BLE.h"
 
 void setup() {
   
@@ -96,7 +97,6 @@ void setup() {
 
   // Create the BLE Service for the Environnemental Sensing Data : Creation du service pour les données environnementales
   pEnvService = pServer->createService(EnvServiceUUID);
-  
   Sensor.configEnvService(pEnvService);
    
   // Start the service : Demarrage des services sur les données environnementales

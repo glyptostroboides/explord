@@ -8,6 +8,7 @@
 /* Hardware Serial is used to define the Serial ports on the ESP32 that has three serial port
 // Inclusion de la bibliotheque HardWareSerial qui permet la gestion d autres ports series avec le microcontrolleur ESP32*/
 #include <HardwareSerial.h> // add the library to connect with O2 UART sensor through serial
+#include "Explord_BLE.h"
   
 class MHZ16Sensor {
   private :
@@ -36,14 +37,16 @@ class MHZ16Sensor {
 
     uint32_t dCO2; //CO2 rate in ppm
     int16_t dTemp; // temperature in Celsius degrees with 0 decimals : signed value
-    
+
+
+    BLEService* pService;
     /*
     *BLE characteristics pointers for the LOX02
     *Declaration des pointeurs pour les caracteristiques BLE 
     */
     BLECharacteristic* pCO2 = NULL;
     BLECharacteristic* pTemp = NULL;
-       
+     
     /* 
     *  Define the UUID for the  characteritic used by the LOX02 Sensor
     *  Definitions des identifiants pour le LOX02 pour le service "donnees environnementales" conforme aux definitions de la norme BLE
@@ -62,7 +65,13 @@ class MHZ16Sensor {
     */
     static uint8_t presentationTemp[7];
     static uint8_t presentationCO2[7];
+    //
+    //BLEChar CO2 (pService,CO2_UUID,CO2_CHARACTERISTIC_DESCRIPTION,presentationCO2,(uint8_t*)dCO2);
+    //BLEChar CO2{pService,CO2_UUID,CO2_CHARACTERISTIC_DESCRIPTION,presentationCO2,(uint8_t*)dCO2} ;
+    BLEChar CO2;
+    BLEChar Temp ;  
   public :
+    MHZ16Sensor();
     String getName(){return SensorName;};
     void powerOn();
     void initSensor();

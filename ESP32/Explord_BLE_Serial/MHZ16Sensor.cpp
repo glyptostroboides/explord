@@ -5,6 +5,10 @@
  *Définition des format de données pour le descripteur 0x2904 conforme à la norme BLE GATT
  */
 
+//#include "Explord_BLE.h"
+
+
+
 uint8_t MHZ16Sensor::presentationCO2[] = {
   0x08, // Format = 8 = "unsigned 32-bit integer"
   0x00, // Exponent = 0
@@ -24,6 +28,32 @@ uint8_t MHZ16Sensor::presentationTemp[] = {
   0x00, // ditto (high byte) 
 };
 
+//BLEChar CO2 (pService,CO2_UUID,CO2_CHARACTERISTIC_DESCRIPTION,presentationCO2,(uint8_t*)dCO2) ; 
+
+/*MHZ16Sensor::MHZ16Sensor():
+  CO2(
+    pService,
+    CO2_UUID,
+    CO2_CHARACTERISTIC_DESCRIPTION,
+    presentationCO2,
+    (uint8_t*)dCO2
+    )
+    {}
+    */
+MHZ16Sensor::MHZ16Sensor():
+  CO2(
+    BLEUUID("0000486c-1000-2000-3000-6578706c6f72"),
+    "Carbon Dioxyd Rate",
+    presentationCO2,
+    (uint8_t*)dCO2
+    ),
+  Temp(
+    BLEUUID((uint16_t)0x2A6E),
+    "Temperature",
+    presentationTemp,
+    (uint8_t*)dTemp   
+    )
+    {}
 void MHZ16Sensor::powerOn() {
     /*
       * Power On the MHZ16 when in use
@@ -57,17 +87,19 @@ bool MHZ16Sensor::getData() {
 }
 
 void MHZ16Sensor::configEnvService(BLEService* pEnvService) {
- 
+  CO2.initCharacteristic(pEnvService);
+  Temp.initCharacteristic(pEnvService);
   // Create BLE Characteristics : Creation des caractéristiques dans le service des données environnementales
-  pCO2 = pEnvService->createCharacteristic(CO2_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
-  pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  //pCO2 = pEnvService->createCharacteristic(CO2_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
+  //pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
   
   // https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.descriptor.gatt.client_characteristic_configuration.xml
   // Create a BLE Descriptor with BLE2902 (which manage the Notify settings)
-  pCO2->addDescriptor(new BLE2902());
-  pTemp->addDescriptor(new BLE2902());
+  //pCO2->addDescriptor(new BLE2902());
+  //pTemp->addDescriptor(new BLE2902());
   
   // Define a Descriptor for the name of the value for CO2 : Definition des descripteurs contenant le nom des valeurs présentées par le serveur
+  /*
   BLEDescriptor *nameCO2Descriptor = new BLEDescriptor((uint16_t)0x2901); // Characteristic User Description : pour indiquer le nom de la valeur mesurée
   pCO2->addDescriptor(nameCO2Descriptor);
   nameCO2Descriptor->setValue(CO2_CHARACTERISTIC_DESCRIPTION.c_str());
@@ -76,10 +108,11 @@ void MHZ16Sensor::configEnvService(BLEService* pEnvService) {
   BLEDescriptor *presentationCO2Descriptor = new BLEDescriptor((uint16_t)0x2904);
   pCO2->addDescriptor(presentationCO2Descriptor);
   presentationCO2Descriptor->setValue(presentationCO2, sizeof presentationCO2);
- 
+
   BLEDescriptor *presentationTempDescriptor = new BLEDescriptor((uint16_t)0x2904);
   pTemp->addDescriptor(presentationTempDescriptor);
   presentationTempDescriptor->setValue(presentationTemp, sizeof presentationTemp);
+  */
 }
 
 void MHZ16Sensor::printSerialHeader() {
@@ -92,10 +125,12 @@ void MHZ16Sensor::printSerialData() {
 }
 
 void MHZ16Sensor::setBLEData() {
-    
+  //BLEChar CO2 (pService,CO2_UUID,CO2_CHARACTERISTIC_DESCRIPTION,presentationCO2,(uint8_t*)dCO2) ;
   //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
-  pCO2->setValue((uint8_t*)&dCO2, sizeof(dCO2)); 
-  pCO2->notify();
-  pTemp->setValue((uint8_t*)&dTemp, sizeof(dTemp));
-  pTemp->notify();
+  //pCO2->setValue((uint8_t*)&dCO2, sizeof(dCO2)); 
+  //pCO2->notify();
+  CO2.setCharacteristic();
+  Temp.setCharacteristic();
+  //pTemp->setValue((uint8_t*)&dTemp, sizeof(dTemp));
+  //pTemp->notify();
 }
