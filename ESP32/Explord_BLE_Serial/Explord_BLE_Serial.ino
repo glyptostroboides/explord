@@ -15,7 +15,7 @@ MHZ16 : carbon dioxyd rate sensor
 DHT_22 : humidity and temperature sensor
 */
 
-#define MHZ16
+#define DHT_22
 
 /*Define the pin for builtin LEDPin : Definition de la broche pour la  intégrée 22 et non 21 comme l'indique le peu de documentation*/
 const int LEDPin = 22;

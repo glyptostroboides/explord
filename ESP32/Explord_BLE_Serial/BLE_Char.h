@@ -10,6 +10,10 @@
 
  class BLEChar {
     private:
+      /*
+       * Define the BLE service pointer for the characteristic
+       * Definition du pointeur du service auquel est rattache la caracteristique
+       */
       BLEService* _pService;
       /*
         * BLE characteristic pointer for the sensor
@@ -30,7 +34,7 @@
       String _CharName = "";
       /*
        * Define a presentation format for the characteristic : an array of 7 bytes defined by the BLE standards
-       * Définition du formar de présentation des données dans un tableau de 7 octet defini par la norme BLE
+       * Définition du format de présentation des données dans un tableau de 7 octets defini par la norme BLE
        */
       uint8_t* _presentation=NULL;
       /*/

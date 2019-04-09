@@ -34,7 +34,7 @@ class DHT22Sensor {
     *BLE characteristics pointers for the DHT
     *Declaration des pointeurs pour les caracteristiques BLE 
     */
-    BLECharacteristic* pTemp = NULL;
+    /*BLECharacteristic* pTemp = NULL;
     BLECharacteristic* pHumidity = NULL;
     BLECharacteristic* pHeat = NULL;
     BLECharacteristic* pDew = NULL;
@@ -42,7 +42,7 @@ class DHT22Sensor {
     *  Define the UUID for the  characteritic used by the DHT Sensor
     *  Definitions des identifiants pour le DHT pour le service "donnees environnementales" conforme aux definitions de la norme BLE
     */
-    const BLEUUID TEMP_UUID = BLEUUID((uint16_t)0x2A6E); // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
+    /*const BLEUUID TEMP_UUID = BLEUUID((uint16_t)0x2A6E); // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
     const BLEUUID HUMIDITY_UUID = BLEUUID((uint16_t)0x2A6F); // 0x2A6F : relative humidity in % correspond a un : uint16 ,Decimal, -1, soit 2 char 
     const BLEUUID DEW_UUID = BLEUUID((uint16_t)0x2A7B); // Dew Point in Celsius degrees with two decimals int
     const BLEUUID HEAT_UUID = BLEUUID((uint16_t)0x2A7A); // Heat Index in Celsius degrees
@@ -55,11 +55,12 @@ class DHT22Sensor {
     static uint8_t presentationHeat[7];
     static uint8_t presentationDew[7];
 
-    //BLEChar Humidity;
-    //BLEChar Temp;
-    //BLEChar Heat;
-    //BLEChar Dew;
+    BLEChar Humidity;
+    BLEChar Temp;
+    BLEChar Heat;
+    BLEChar Dew;
   public :
+    DHT22Sensor();
     String getName(){return DHTSensorName;};
     void powerOn();
     void initSensor();

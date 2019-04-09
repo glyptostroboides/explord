@@ -35,7 +35,7 @@ uint8_t DHT22Sensor::presentationDew[] = {
     0x00, // ditto (high byte) 
   };
 uint8_t DHT22Sensor::presentationHeat[] = {
-  0x06, // Format = E = "signed 16-bit integer"
+  0x0E, // Format = E = "signed 16-bit integer"
   0x02, // Exponent = 2
   0x2F, // Unit = 0x272F = "Celsius temperature" (low byte)
   0x27, // ditto (high byte)
@@ -43,6 +43,37 @@ uint8_t DHT22Sensor::presentationHeat[] = {
   0x00, // Description = 0 = "unknown" (low byte)
   0x00, // ditto (high byte) 
   };
+
+DHT22Sensor::DHT22Sensor(): 
+  Humidity(
+    BLEUUID((uint16_t)0x2A6F), // 0x2A6F : relative humidity in % correspond a un : uint16 ,Decimal, -1, soit 2 char 
+    "Humidity",
+    presentationHumidity,
+    (uint8_t*)&dHumidity,
+    2
+    ),
+  Temp(
+    BLEUUID((uint16_t)0x2A6E), //0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2
+    "Temperature",
+    presentationTemp,
+    (uint8_t*)&dTemp,
+    2   
+    ),
+  Dew(
+    BLEUUID((uint16_t)0x2A7B), // Dew Point in Celsius degrees with two decimals int
+    "Dew Point",
+    presentationDew,
+    (uint8_t*)&dDew,
+    2
+    ),
+  Heat(
+    BLEUUID((uint16_t)0x2A7A), // Heat Index in Celsius degrees
+    "Heat Index",
+    presentationHeat,
+    (uint8_t*)&dHeat,
+    2
+    )
+    {}
 
 void DHT22Sensor::powerOn() {
     /*
@@ -76,36 +107,12 @@ bool DHT22Sensor::getData() {
 }
 
 void DHT22Sensor::configEnvService(BLEService* pEnvService) {
- 
   // Create BLE Characteristics : Creation des caractéristiques dans le service des données environnementales
-  //pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY | BLECharacteristic::PROPERTY_INDICATE );
-  pHumidity = pEnvService->createCharacteristic(HUMIDITY_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
-  pTemp = pEnvService->createCharacteristic(TEMP_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
-  pDew = pEnvService->createCharacteristic(DEW_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY  );
-  pHeat = pEnvService->createCharacteristic(HEAT_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
-  
-  // Create a BLE Descriptor with BLE2902 (which manage the Notify settings)
-  pHumidity->addDescriptor(new BLE2902());
-  pTemp->addDescriptor(new BLE2902());
-  pDew->addDescriptor(new BLE2902());
-  pHeat->addDescriptor(new BLE2902());
-  
- //Define the presentation format for each characteristic ( Characteristic Presentation Format) : Définition des descripteurs contenant les informations sur la presentation des valeurs mesurées
-  BLEDescriptor *presentationHumidityDescriptor = new BLEDescriptor((uint16_t)0x2904);
-  pHumidity->addDescriptor(presentationHumidityDescriptor);
-  presentationHumidityDescriptor->setValue(presentationHumidity, sizeof presentationHumidity);
+  Humidity.initCharacteristic(pEnvService);
+  Temp.initCharacteristic(pEnvService);
+  Dew.initCharacteristic(pEnvService);
+  Heat.initCharacteristic(pEnvService);
  
-  BLEDescriptor *presentationTempDescriptor = new BLEDescriptor((uint16_t)0x2904);
-  pTemp->addDescriptor(presentationTempDescriptor);
-  presentationTempDescriptor->setValue(presentationTemp, sizeof presentationTemp);
-
-  BLEDescriptor *presentationDewDescriptor = new BLEDescriptor((uint16_t)0x2904);
-  pDew->addDescriptor(presentationDewDescriptor);
-  presentationDewDescriptor->setValue(presentationDew, sizeof presentationDew);
-
-  BLEDescriptor *presentationHeatDescriptor = new BLEDescriptor((uint16_t)0x2904);
-  pHeat->addDescriptor(presentationHeatDescriptor);
-  presentationHeatDescriptor->setValue(presentationHeat, sizeof presentationHeat);
 }
 
 void DHT22Sensor::printSerialHeader() {
@@ -119,12 +126,8 @@ void DHT22Sensor::printSerialData() {
 
 void DHT22Sensor::setBLEData() {
   //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
-  pHumidity->setValue((uint8_t*)&dHumidity, sizeof(dHumidity)); 
-  pHumidity->notify();
-  pTemp->setValue((uint8_t*)&dTemp, sizeof(dTemp)); // changed to work with temperature characteristic was 4 before
-  pTemp->notify();
-  pDew->setValue((uint8_t*)&dDew, sizeof(dDew)); 
-  pDew->notify();
-  pHeat->setValue((uint8_t*)&dHeat,  sizeof(dHeat)); 
-  pHeat->notify();
+  Humidity.setCharacteristic();
+  Temp.setCharacteristic();
+  Dew.setCharacteristic();
+  Heat.setCharacteristic();
 }

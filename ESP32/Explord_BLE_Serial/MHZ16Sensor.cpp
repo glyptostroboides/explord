@@ -5,10 +5,6 @@
  *Définition des format de données pour le descripteur 0x2904 conforme à la norme BLE GATT
  */
 
-//#include "BLE_Char.h"
-
-
-
 uint8_t MHZ16Sensor::presentationCO2[] = {
   0x08, // Format = 8 = "unsigned 32-bit integer"
   0x00, // Exponent = 0

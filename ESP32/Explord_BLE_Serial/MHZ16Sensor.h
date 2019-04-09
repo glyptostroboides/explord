@@ -38,18 +38,13 @@ class MHZ16Sensor {
     uint32_t dCO2; //CO2 rate in ppm
     int16_t dTemp; // temperature in Celsius degrees with 0 decimals : signed value
 
-
-    BLEService* pService;
-    
     /*
     *Format presentation descriptor
     *Définition des format de données pour le LOX02 pour le descripteur 0x2904 conforme à la norme BLE GATT
     */
     static uint8_t presentationTemp[7];
     static uint8_t presentationCO2[7];
-    //
-    //BLEChar CO2 (pService,CO2_UUID,CO2_CHARACTERISTIC_DESCRIPTION,presentationCO2,(uint8_t*)dCO2);
-    //BLEChar CO2{pService,CO2_UUID,CO2_CHARACTERISTIC_DESCRIPTION,presentationCO2,(uint8_t*)dCO2} ;
+   
     BLEChar CO2;
     BLEChar Temp ;  
   public :
