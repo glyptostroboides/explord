@@ -8,7 +8,7 @@
 /* Hardware Serial is used to define the Serial ports on the ESP32 that has three serial port
 // Inclusion de la bibliotheque HardWareSerial qui permet la gestion d autres ports series avec le microcontrolleur ESP32*/
 #include <HardwareSerial.h> // add the library to connect with O2 UART sensor through serial
-#include "Explord_BLE.h"
+#include "BLE_Char.h"
   
 class MHZ16Sensor {
   private :
@@ -40,25 +40,7 @@ class MHZ16Sensor {
 
 
     BLEService* pService;
-    /*
-    *BLE characteristics pointers for the LOX02
-    *Declaration des pointeurs pour les caracteristiques BLE 
-    */
-    BLECharacteristic* pCO2 = NULL;
-    BLECharacteristic* pTemp = NULL;
-     
-    /* 
-    *  Define the UUID for the  characteritic used by the LOX02 Sensor
-    *  Definitions des identifiants pour le LOX02 pour le service "donnees environnementales" conforme aux definitions de la norme BLE
-    */
-    const BLEUUID TEMP_UUID = BLEUUID((uint16_t)0x2A6E); // 0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2, soit 2 ouchar4 char
-    const BLEUUID CO2_UUID = BLEUUID("0000486c-1000-2000-3000-6578706c6f72"); // Custom UUID for the CO2 rate
-    /*
-     * Define the name of the characteristics as strings
-     *      
-     */
-    const String CO2_CHARACTERISTIC_DESCRIPTION = "Carbon dioxyd Rate";
-
+    
     /*
     *Format presentation descriptor
     *Définition des format de données pour le LOX02 pour le descripteur 0x2904 conforme à la norme BLE GATT
@@ -78,6 +60,6 @@ class MHZ16Sensor {
     bool getData();
     void configEnvService(BLEService* pEnvService);
     void printSerialHeader();
-    void printSerialData();     
+    void printSerialData();    
     void setBLEData();   
 };

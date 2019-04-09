@@ -5,6 +5,8 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
+#include "BLE_Char.h"
+
 #include <DHTesp.h>
   
 class DHT22Sensor {
@@ -52,6 +54,11 @@ class DHT22Sensor {
     static uint8_t presentationHumidity[7];
     static uint8_t presentationHeat[7];
     static uint8_t presentationDew[7];
+
+    //BLEChar Humidity;
+    //BLEChar Temp;
+    //BLEChar Heat;
+    //BLEChar Dew;
   public :
     String getName(){return DHTSensorName;};
     void powerOn();

@@ -8,13 +8,22 @@ The UUID used are the one from the BLE GATT specifications : https://www.bluetoo
  * 
  */
 
+/*Select here the sensor used to get specific code for the sensor code part 
+Possible values are :
+LOX02 : dioxygen rate sensor (also temperature, pressure and O2 partial pressure)
+MHZ16 : carbon dioxyd rate sensor
+DHT_22 : humidity and temperature sensor
+*/
+
+#define MHZ16
+
 /*Define the pin for builtin LEDPin : Definition de la broche pour la  intégrée 22 et non 21 comme l'indique le peu de documentation*/
 const int LEDPin = 22;
 
 /*Define a value for the delay between each mesure : Définition de l'intervalle entre deux mesures en millisecondes*/
 
 uint16_t readingsDelay = 1000;
-String deviceName = "Explord";
+String deviceName = "Explord-";
 String deviceNumber = "01"; //added to the Sensor specific device name
 
 /* BLE for ESP32 default library on ESP32-arduino framework
@@ -57,18 +66,20 @@ class MyServerCallbacks: public BLEServerCallbacks {
     }
 };
 
-/*
-#ifdef DHT22
+#ifdef DHT_22
 #include "DHT22Sensor.h"
-
 DHT22Sensor Sensor;
 #endif
-*/
-//#ifdef MHZ16
-#include "MHZ16Sensor.h"
 
+#ifdef MHZ16
+#include "MHZ16Sensor.h"
 MHZ16Sensor Sensor;
-//#endif
+#endif
+
+#ifdef LOX02
+#include "LOX02Sensor.h"
+LOX02Sensor Sensor;
+#endif
 //#include "Explord_BLE.h"
 
 void setup() {
@@ -120,6 +131,7 @@ void loop() {
 
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
                 //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
+                //Serial.println("Sending data through BLE");
                 Sensor.setBLEData();
             }
             delay(100);

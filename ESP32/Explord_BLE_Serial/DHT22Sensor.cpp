@@ -109,7 +109,7 @@ void DHT22Sensor::configEnvService(BLEService* pEnvService) {
 }
 
 void DHT22Sensor::printSerialHeader() {
-  Serial.println("Humidity, Temperature,Dew Point,Heat Index");
+  Serial.println("Humidity,Temperature,Dew Point,Heat Index");
 
 }
 
