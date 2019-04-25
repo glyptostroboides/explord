@@ -25,24 +25,6 @@ uint8_t DHT22Sensor::presentationTemp[] = {
     0x00, // Description = 0 = "unknown" (low byte)
     0x00, // ditto (high byte) 
   };
-uint8_t DHT22Sensor::presentationDew[] = {
-    0x0E, // Format = E = "signed 16-bit integer"
-    0x02, // Exponent = 2
-    0x2F, // Unit = 0x272F = "Celsius temperature" (low byte)
-    0x27, // ditto (high byte)
-    0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
-    0x00, // Description = 0 = "unknown" (low byte)
-    0x00, // ditto (high byte) 
-  };
-uint8_t DHT22Sensor::presentationHeat[] = {
-  0x0E, // Format = E = "signed 16-bit integer"
-  0x02, // Exponent = 2
-  0x2F, // Unit = 0x272F = "Celsius temperature" (low byte)
-  0x27, // ditto (high byte)
-  0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
-  0x00, // Description = 0 = "unknown" (low byte)
-  0x00, // ditto (high byte) 
-  };
 
 DHT22Sensor::DHT22Sensor(): 
   Humidity(
@@ -62,14 +44,14 @@ DHT22Sensor::DHT22Sensor():
   Dew(
     BLEUUID((uint16_t)0x2A7B), // Dew Point in Celsius degrees with two decimals int
     "Dew Point",
-    presentationDew,
+    presentationTemp,
     (uint8_t*)&dDew,
     2
     ),
   Heat(
     BLEUUID((uint16_t)0x2A7A), // Heat Index in Celsius degrees
     "Heat Index",
-    presentationHeat,
+    presentationTemp,
     (uint8_t*)&dHeat,
     2
     )
