@@ -5,11 +5,37 @@
  *
  */
 
+
+String BLEChar::getCharName(){
+  return BLEChar::_CharName;
+}
+
+/*
+uint8_t* BLEChar::getCharValue(){
+  return BLEChar::_dvalue;
+}
+*/
+void BLEChar::setCharValue(uint8_t* d_value, size_t value_size){
+  for (int n=0;n<value_size;n++) {
+    //BLEChar::_dvalue[n]= *(d_value + n);
+    BLEChar::_value[n]=d_value[n];
+    //Serial.println(BLEChar::_value[n],HEX);
+  }
+}
+
+String BLEChar::getCharSValue(){
+  return BLEChar::_svalue;
+}
+
+void BLEChar::setCharSValue(String s_value){
+  BLEChar::_svalue= s_value;
+}
+
 /*
  * Define the characteristic name, presentation to initialize the advertising
  * Définition du nom, du format des caractéristiques BLE
  */
-bool BLEChar::initCharacteristic(BLEService* pService) {
+bool BLEChar::initBLECharacteristic(BLEService* pService) {
     // Create BLE Characteristics : Creation des caractéristiques dans le service des données environnementales
     //Define a pointer for the characteristic
   _pChar = pService->createCharacteristic(_UUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY );
@@ -35,8 +61,16 @@ bool BLEChar::initCharacteristic(BLEService* pService) {
  * Modifie la valeur de la caractéristique BLE et notifie le client de ce changement
  */
 
-bool BLEChar::setCharacteristic() {
+bool BLEChar::setBLECharacteristic() {
   //Serial.println("Value set for a char");
   _pChar->setValue(_value,_value_size); 
-  _pChar->notify();;
+  _pChar->notify();
 };
+
+/*
+bool BLEChar::setBLECharacteristicBis() {
+  //Serial.println("Value set for a char");
+  _pChar->setValue(_dvalue,_value_size); 
+  _pChar->notify();
+};
+*/

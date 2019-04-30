@@ -70,6 +70,13 @@ bool LOX02Sensor::getData() {
   if(Serial1.available()){ //true if new datas are sended by LOX sensor : vrai si des nouvelles données envoyées par le LOX sont disponibles
     delay(1);
     LoxD = Serial1.readStringUntil('\r');  // O xxxx.x T yxx.x P xxxx % xxx.xx e xxxx\r\n : format des données récupérées
+    // Data extraction for the BLE server : Extraction des donnees de la chaine de caracteres envoyee par le LOX-02 pour le BLE
+    // O xxxx.x T yxx.x P xxxx % xxx.xx e xxxx\r\n
+    dPPO2 = String(LoxD.substring(3,7)+LoxD.charAt(8)+"00").toInt(); // extract from O xxxx.x : xxxxx in millibar with one decimal converted to pascal with one decimal
+    dTemp = String(LoxD.substring(13,15)+LoxD.charAt(16)+"0").toInt(); //extract from T yxx.x : xxx0 (add a zero to conform to BLE GATT)
+    if (LoxD.charAt(12) == '-'){dTemp = -1 * dTemp;} // deal with the sign if negative T value 
+    dPressure = String(LoxD.substring(20,24)+"000").toInt(); // extract from P xxxx : xxxx and convert from millibar to pascal (x100)with one decimal(x10)
+    dO2 = String(LoxD.substring(28,30)+LoxD.substring(31,33)).toInt(); // extract from % xxx.xx :xxxx O2 rate in percent with two decimal 
     return true;
   }
 }
@@ -126,19 +133,7 @@ void LOX02Sensor::printSerialData() {
 }
 
 void LOX02Sensor::setBLEData() {
-  // Data extraction for the BLE server : Extraction des donnees de la chaine de caracteres envoyee par le LOX-02 pour le BLE
-  // O xxxx.x T yxx.x P xxxx % xxx.xx e xxxx\r\n
-  
-  dPPO2 = String(LoxD.substring(3,7)+LoxD.charAt(8)+"00").toInt(); // extract from O xxxx.x : xxxxx in millibar with one decimal converted to pascal with one decimal
-  
-  dTemp = String(LoxD.substring(13,15)+LoxD.charAt(16)+"0").toInt(); //extract from T yxx.x : xxx0 (add a zero to conform to BLE GATT)
-  if (LoxD.charAt(12) == '-'){dTemp = -1 * dTemp;} // deal with the sign if negative T value
-  
-  dPressure = String(LoxD.substring(20,24)+"000").toInt(); // extract from P xxxx : xxxx and convert from millibar to pascal (x100)with one decimal(x10)
-  
-  dO2 = String(LoxD.substring(28,30)+LoxD.substring(31,33)).toInt(); // extract from % xxx.xx :xxxx O2 rate in percent with two decimal
-  
-  //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
+ //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
   pPPO2->setValue((uint8_t*)&dPPO2, sizeof(dPPO2)); 
   pPPO2->notify();
   pTemp->setValue((uint8_t*)&dTemp, sizeof(dTemp));

@@ -1,3 +1,5 @@
+#pragma once
+
 /* BLE for ESP32 default library on ESP32-arduino framework
 / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
 #include <BLEDevice.h>
@@ -19,18 +21,18 @@ class DHT22Sensor {
     const uint8_t DHTDataPin = 17;
     const uint8_t DHTPowerPin = 4;
     DHTesp dht;
-    TempAndHumidity DHTData;
+    //TempAndHumidity DHTData;
     /*Store the integer from DHT*/
-    uint16_t dHumidity;
-    int16_t dTemp, dHeat,dDew;
+    //uint16_t dHumidity;
+    //int16_t dTemp, dHeat,dDew;
     /*Store the values sended by DHT as strings*/
-    String sTemp, sHumidity, sHeat, sDew;   
+    //String sTemp, sHumidity, sHeat, sDew;   
     /*
     *Format presentation descriptor
     *Définition des format de données pour le DHT22 pour le descripteur 0x2904 conforme à la norme BLE GATT
     */
-    static uint8_t presentationTemp[7];
-    static uint8_t presentationHumidity[7];
+    //static uint8_t presentationTemp[7];
+    //static uint8_t presentationHumidity[7];
 
     BLEChar Humidity,Temp,Dew,Heat;
   public :

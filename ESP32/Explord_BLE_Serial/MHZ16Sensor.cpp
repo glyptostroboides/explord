@@ -29,14 +29,14 @@ MHZ16Sensor::MHZ16Sensor():
     BLEUUID("0000486c-1000-2000-3000-6578706c6f72"), // Custom UUID for the CO2 rate
     "Carbon Dioxyd Rate",
     presentationCO2,
-    (uint8_t*)&dCO2,
+    //(uint8_t*)&dCO2,
     4
     ),
   Temp(
     BLEUUID((uint16_t)0x2A6E), //0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2
     "Temperature",
     presentationTemp,
-    (uint8_t*)&dTemp,
+    //(uint8_t*)&dTemp,
     2   
     )
     {}
@@ -75,8 +75,8 @@ bool MHZ16Sensor::getData() {
 
 void MHZ16Sensor::configEnvService(BLEService* pEnvService) {
   // Create BLE Characteristics : Creation des caractéristiques dans le service des données environnementales
-  CO2.initCharacteristic(pEnvService);
-  Temp.initCharacteristic(pEnvService);
+  CO2.initBLECharacteristic(pEnvService);
+  Temp.initBLECharacteristic(pEnvService);
 }
 
 void MHZ16Sensor::printSerialHeader() {
@@ -90,6 +90,6 @@ void MHZ16Sensor::printSerialData() {
 
 void MHZ16Sensor::setBLEData() {
   //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
-  CO2.setCharacteristic();
-  Temp.setCharacteristic();
+  CO2.setBLECharacteristic();
+  Temp.setBLECharacteristic();
 }

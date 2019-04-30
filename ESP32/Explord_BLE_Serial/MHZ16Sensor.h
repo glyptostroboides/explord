@@ -1,3 +1,4 @@
+#pragma once
 /* BLE for ESP32 default library on ESP32-arduino framework
 / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
 #include <BLEDevice.h>
