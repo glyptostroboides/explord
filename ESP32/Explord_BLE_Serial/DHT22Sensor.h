@@ -7,7 +7,7 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-#include "BLE_Char.h"
+#include "Characteristic.h"
 
 #include <DHTesp.h>
   
@@ -31,10 +31,10 @@ class DHT22Sensor {
     *Format presentation descriptor
     *Définition des format de données pour le DHT22 pour le descripteur 0x2904 conforme à la norme BLE GATT
     */
-    //static uint8_t presentationTemp[7];
-    //static uint8_t presentationHumidity[7];
+    static uint8_t presentationTemp[7];
+    static uint8_t presentationHumidity[7];
 
-    BLEChar Humidity,Temp,Dew,Heat;
+    Characteristic Humidity,Temp,Dew,Heat;
   public :
     DHT22Sensor();
     String getName(){return DHTSensorName;};

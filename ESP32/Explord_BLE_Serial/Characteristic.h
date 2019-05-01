@@ -1,3 +1,4 @@
+#pragma once
 
 #include <Arduino.h>
 /* BLE for ESP32 default library on ESP32-arduino framework
@@ -7,11 +8,8 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-//#ifndef BLECHAR_H
-//#define BLECHAR_H
-#pragma once
 
- class BLEChar {
+ class Characteristic {
     private:
       /*
        * Define the BLE service pointer for the characteristic
@@ -34,7 +32,7 @@
         * Define the name of the characteristics as strings
         * Definition du nom de la caractéristique      
      */
-      String _CharName = "";
+      String _Name = "";
       /*
        * Define a presentation format for the characteristic : an array of 7 bytes defined by the BLE standards
        * Définition du format de présentation des données dans un tableau de 7 octets defini par la norme BLE
@@ -55,14 +53,12 @@
     public:
       //Class constructor : Constructeur de la classe
       //BLEChar(BLEUUID uuid,String charname,uint8_t* pres,uint8_t* value, size_t value_size): _UUID(uuid),_CharName(charname),_presentation(pres),_value(value), _value_size(value_size){};
-      BLEChar(BLEUUID uuid,String charname,uint8_t* pres, size_t value_size): _UUID(uuid),_CharName(charname),_presentation(pres), _value_size(value_size){};
-      String getCharName();
-      //uint8_t* getCharValue();
-      String getCharSValue();
-      void setCharValue(uint8_t*, size_t);
-      void setCharSValue(String);
-      bool initBLECharacteristic(BLEService* pService);
+      Characteristic(BLEUUID uuid,String cname,uint8_t* pres, size_t value_size): _UUID(uuid),_Name(cname),_presentation(pres), _value_size(value_size){};
+      String getName();
+      String getSValue();
+      void setValue(uint8_t*, size_t);
+      void setSValue(String);
+      bool initBLECharacteristic(BLEService*);
       bool setBLECharacteristic();
-      //bool setBLECharacteristicBis(); 
  };
 // #endif

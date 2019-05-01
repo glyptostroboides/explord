@@ -9,7 +9,7 @@
 /* Hardware Serial is used to define the Serial ports on the ESP32 that has three serial port
 // Inclusion de la bibliotheque HardWareSerial qui permet la gestion d autres ports series avec le microcontrolleur ESP32*/
 #include <HardwareSerial.h> // add the library to connect with O2 UART sensor through serial
-#include "BLE_Char.h"
+#include "Characteristic.h"
   
 class MHZ16Sensor {
   private :
@@ -46,8 +46,8 @@ class MHZ16Sensor {
     static uint8_t presentationTemp[7];
     static uint8_t presentationCO2[7];
    
-    BLEChar CO2;
-    BLEChar Temp ;  
+    Characteristic CO2;
+    Characteristic Temp;  
   public :
     MHZ16Sensor();
     String getName(){return SensorName;};

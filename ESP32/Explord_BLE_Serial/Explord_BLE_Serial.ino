@@ -33,6 +33,10 @@ String deviceNumber = "01"; //added to the Sensor specific device name
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
+#include "Characteristic.h"
+#include "Sensor.h"
+
+
 /*Define the UUID for the environnmental sensing service used by all sensors*/
 
 const BLEUUID EnvServiceUUID = BLEUUID((uint16_t)0x181A); // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
@@ -42,7 +46,7 @@ const BLEUUID EnvServiceUUID = BLEUUID((uint16_t)0x181A); // 0x181A is the servi
   Declaration du serveur BLE et du service environnemental
 */
 BLEServer* pServer = NULL;
-static BLEService *pEnvService = NULL;
+static BLEService* pEnvService = NULL;
 /*
   Value to store the BLE server connection state
   Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
@@ -66,35 +70,33 @@ class MyServerCallbacks: public BLEServerCallbacks {
     }
 };
 
-//#include "BLE_Char.h"
-#include "DHT22Sensor.h"
-#include "MHZ16Sensor.h"
-#include "LOX02Sensor.h"
-#include "Sensor.h"
+Sensor* pSensor;
 
 #ifdef DHT_22
-int Sensor_type = 1;
-DHT22Sensor sensor;
+uint8_t Sensor_type = 1;
+//String Sensor_name ="DHT";
 #endif
 
 #ifdef MHZ16
-int Sensor_type = 3;
-MHZ16Sensor sensor;
+uint8_t Sensor_type = 3;
+//String Sensor_name ="MHZ"
+//Sensor sensor;
 #endif
 
 #ifdef LOX02
-int Sensor_type = 2;
-LOX02Sensor sensor;
+uint8_t Sensor_type = 2;
+//String Sensor_name ="LOX"
+//Sensor sensor;
 #endif
-//#include "Explord_BLE.h"
-
 
 void setup() {
 
   pinMode(LEDPin, OUTPUT);
+  pSensor = new Sensor(Sensor_type);
+  pSensor->init();
 /*  switch (Sensor_type) {
     case 1 :
-      DHT22Sensor Sensor; 
+      sensor.begin(1); 
       break;
     case 2 :
       LOX02Sensor Sensor;
@@ -102,24 +104,24 @@ void setup() {
     case 3 :
       MHZ16Sensor Sensor;
       break;
-  }*/
-
+  }
+*/
   /*
      Define the power pin for the DHT in order to get it of when not connected
      Définition de la broche pour alimenter le DHT quand il est utilisé mais pas lorsque le capteur est en charge
      Cela permet également de téléverser avec le composant soudé sinon il faudrait le déconnecter
   */
-  sensor.powerOn();
+  pSensor->powerOn();
   /* Init the serial connection through USB
      Demarrage de la connection serie a travers le port USB
   */
   Serial.begin(115200);
 
-  sensor.initSensor();
+  //sensor.initSensor();
 
   //Init the BLE Server : Demarrage du serveur BLE
   // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
-  BLEDevice::init((deviceName + sensor.getName() + "-" + deviceNumber).c_str());
+  BLEDevice::init((deviceName + pSensor->getName() + "-" + deviceNumber).c_str());
 
   // Create the BLE Server : Creation du serveur BLE et mise en place de la fonction de callback pour savoir si le serveur est connecté et doit commencer à envoyer des notifications
   pServer = BLEDevice::createServer();
@@ -127,7 +129,7 @@ void setup() {
 
   // Create the BLE Service for the Environnemental Sensing Data : Creation du service pour les données environnementales
   pEnvService = pServer->createService(EnvServiceUUID);
-  sensor.configEnvService(pEnvService);
+  pSensor->configBLEService(pEnvService);
 
   // Start the service : Demarrage des services sur les données environnementales
   pEnvService->start();
@@ -139,19 +141,19 @@ void setup() {
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   BLEDevice::startAdvertising();
   //Serial.println("Waiting a client connection to notify... : En attente d'une connection BLE pour notifier");
-  sensor.printSerialHeader();
+  pSensor->printSerialHeader();
   delay(readingsDelay); // The DHT need about 1 second to calculate new values : Il faut laisser du temps au DHT pour calculer l'humidité et la température
 }
 
 void loop() {
-  if (sensor.getData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
+  if (pSensor->getData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
     digitalWrite(LEDPin, HIGH);
-    sensor.printSerialData();
+    pSensor->printSerialData();
 
     if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
       //Define new value and notify to connected client : Definition et notification des nouvelles valeurs
       //Serial.println("Sending data through BLE");
-      sensor.setBLEData();
+      pSensor->setBLEData();
     }
     delay(100);
     digitalWrite(LEDPin, LOW);
