@@ -6,10 +6,6 @@
 #include <HardwareSerial.h> // add the library to connect with O2 UART sensor through serial
 #include "Characteristic.h"
 
-#include "DHT22Sensor.h"
-#include "MHZ16Sensor.h"
-#include "LOX02Sensor.h"
-
 const int MaxCharacteristics = 4;
 
 class Sensor {
@@ -22,10 +18,13 @@ class Sensor {
     uint8_t CharNb;
     String Name;    
     Characteristic* CharSet[MaxCharacteristics];
-    friend class DHT22Sensor;
-    friend class LOXO2Sensor;
-    friend class MHZ16Sensor;
     DHTesp dht;
+    void initDHT();
+    bool readDHT();
+    void initLOX();
+    bool readLOX();
+    void initMHZ();
+    bool readMHZ();
   public:
     Sensor(uint8_t sensor_id):Id(sensor_id){};
     void powerOn();
