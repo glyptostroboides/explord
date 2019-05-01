@@ -106,22 +106,17 @@ void Sensor::powerOn() {
     pinMode(PowerPin,OUTPUT);
     digitalWrite(PowerPin,HIGH); // power on the sensor
 }
+
+void Sensor::powerOff() {
+  digitalWrite(PowerPin,LOW); //power off the sensor
+}
     
 void Sensor::init() {
   switch (Id) 
   {
     case 1 :  //DHT22
       {
-      /* Init the I2C connection to the DHT sensor*/
-      dht.setup(DataPin, DHTesp::DHT22);
-      // pin for the data DHT I2C connection, then type of sensor DHT11, DHT22 etc...
-      Name=String("DHT");
-      CharNb=4;
-      //Sensor::CharSet[]={&Humidity,&Temp,&Dew,&Heat};
-      CharSet[0]=&Humidity;
-      CharSet[1]=&Temp;
-      CharSet[2]=&Dew;
-      CharSet[3]=&Heat;
+      initDHT();
       break;
       }
     case 2 : //LOX02
@@ -151,28 +146,7 @@ bool Sensor::getData() {
   switch (Id)
   {
     case 1 : //DHT22
-      {
-      TempAndHumidity DHTData = dht.getTempAndHumidity(); //get the temperature and humidity
-      if (dht.getStatus() != 0) {
-        Serial.println("DHT22 error status: " + String(dht.getStatusString()));
-        return false; // mostly due to a disconnected sensor
-        }
-      delay(1);
-      uint16_t _humidity = (uint16_t) (DHTData.humidity*100);
-      uint8_t _h[]= {(uint8_t)(_humidity >> 8),(uint8_t)_humidity}; 
-      CharSet[0]->setValue((uint8_t*)_h,2);
-      int16_t _temperature = (int16_t) (DHTData.temperature*100);
-      CharSet[1]->setValue((uint8_t*)&_temperature,2);
-      int16_t _dew = (int16_t) (dht.computeDewPoint(DHTData.temperature, DHTData.humidity)*100);
-      CharSet[2]->setValue((uint8_t*)&_dew,2);
-      int16_t _heat = (int16_t) (dht.computeHeatIndex(DHTData.temperature, DHTData.humidity)*100);
-      CharSet[3]->setValue((uint8_t*)&_heat,2);
-      CharSet[0]->setSValue(String(DHTData.humidity));
-      CharSet[1]->setSValue(String(DHTData.temperature));
-      CharSet[2]->setSValue(String(dht.computeDewPoint(DHTData.temperature, DHTData.humidity)));
-      CharSet[3]->setSValue(String (dht.computeHeatIndex(DHTData.temperature, DHTData.humidity)));
-      return true;
-      }
+      return getDHTData();
     case 2 : //LOX02
       {
       if(Serial1.available()){ //true if new datas are sended by LOX sensor : vrai si des nouvelles données envoyées par le LOX sont disponibles
@@ -249,4 +223,40 @@ void Sensor::printSerialData(){
 
 void Sensor::setBLEData(){
   for (int n=0;n<CharNb;n++) {CharSet[n]->setBLECharacteristic();} 
+}
+
+void Sensor::initDHT() {
+  /* Init the I2C connection to the DHT sensor*/
+  dht.setup(DataPin, DHTesp::DHT22);
+  // pin for the data DHT I2C connection, then type of sensor DHT11, DHT22 etc...
+  Name=String("DHT");
+  CharNb=4;
+  //Sensor::CharSet[]={&Humidity,&Temp,&Dew,&Heat};
+  CharSet[0]=&Humidity;
+  CharSet[1]=&Temp;
+  CharSet[2]=&Dew;
+  CharSet[3]=&Heat;
+}
+
+bool Sensor::getDHT() {
+  TempAndHumidity DHTData = dht.getTempAndHumidity(); //get the temperature and humidity
+  if (dht.getStatus() != 0) {
+    Serial.println("DHT22 error status: " + String(dht.getStatusString()));
+    return false; // mostly due to a disconnected sensor
+    }
+  delay(1);
+  uint16_t _humidity = (uint16_t) (DHTData.humidity*100);
+  uint8_t _h[]= {(uint8_t)(_humidity >> 8),(uint8_t)_humidity}; 
+  CharSet[0]->setValue((uint8_t*)_h,2);
+  int16_t _temperature = (int16_t) (DHTData.temperature*100);
+  CharSet[1]->setValue((uint8_t*)&_temperature,2);
+  int16_t _dew = (int16_t) (dht.computeDewPoint(DHTData.temperature, DHTData.humidity)*100);
+  CharSet[2]->setValue((uint8_t*)&_dew,2);
+  int16_t _heat = (int16_t) (dht.computeHeatIndex(DHTData.temperature, DHTData.humidity)*100);
+  CharSet[3]->setValue((uint8_t*)&_heat,2);
+  CharSet[0]->setSValue(String(DHTData.humidity));
+  CharSet[1]->setSValue(String(DHTData.temperature));
+  CharSet[2]->setSValue(String(dht.computeDewPoint(DHTData.temperature, DHTData.humidity)));
+  CharSet[3]->setSValue(String (dht.computeHeatIndex(DHTData.temperature, DHTData.humidity)));
+  return true;
 }

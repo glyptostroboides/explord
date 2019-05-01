@@ -5,62 +5,7 @@
  */
 
 #include "DHT22Sensor.h"
-
- /*Store the presentation format for each characteristics of DHT*/
-uint8_t DHT22Sensor::presentationHumidity[] = {
-    0x06, // Format = 6 = "unsigned 16-bit integer"
-    0x02, // Exponent = 2
-    0xAD, // Unit = 0x27AD = "percentage" (low byte)
-    0x27, // ditto (high byte)
-    0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
-    0x00, // Description = 0 = "unknown" (low byte)
-    0x00, // ditto (high byte) 
-  };
-uint8_t DHT22Sensor::presentationTemp[] = {
-    0x0E, // Format = E = "signed 16-bit integer"
-    0x02, // Exponent = 2
-    0x2F, // Unit = 0x272F = "Celsius temperature" (low byte)
-    0x27, // ditto (high byte)
-    0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
-    0x00, // Description = 0 = "unknown" (low byte)
-    0x00, // ditto (high byte) 
-  };
-
-DHT22Sensor::DHT22Sensor(): 
-  Humidity(
-    BLEUUID((uint16_t)0x2A6F), // 0x2A6F : relative humidity in % correspond a un : uint16 ,Decimal, -1, soit 2 char 
-    "Humidity",
-    presentationHumidity,
-    2
-    ),
-  Temp(
-    BLEUUID((uint16_t)0x2A6E), //0x2A6E is the characteristic for Temperature from ENV : en degres celsius correspond a un : sint16, Decimal,-2
-    "Temperature",
-    presentationTemp,
-    2   
-    ),
-  Dew(
-    BLEUUID((uint16_t)0x2A7B), // Dew Point in Celsius degrees with two decimals int
-    "Dew Point",
-    presentationTemp,
-    2
-    ),
-  Heat(
-    BLEUUID((uint16_t)0x2A7A), // Heat Index in Celsius degrees
-    "Heat Index",
-    presentationTemp,
-    2
-    )
-    {}
-
-void DHT22Sensor::powerOn() {
-    /*
-      * Power On the DHT when in use
-      */
-    pinMode(DHTPowerPin,OUTPUT);
-    digitalWrite(DHTPowerPin,HIGH); // power on the DHT
-    };
-    
+  
 void DHT22Sensor::initSensor() {
    /* Init the I2C connection to the DHT sensor
    */
@@ -88,29 +33,4 @@ bool DHT22Sensor::getData() {
   Dew.setSValue(String(dht.computeDewPoint(DHTData.temperature, DHTData.humidity)));
   Heat.setSValue(String (dht.computeHeatIndex(DHTData.temperature, DHTData.humidity)));
   return true;
-}
-
-void DHT22Sensor::configEnvService(BLEService* pEnvService) {
-  // Create BLE Characteristics : Creation des caractéristiques dans le service des données environnementales
-  Humidity.initBLECharacteristic(pEnvService);
-  Temp.initBLECharacteristic(pEnvService);
-  Dew.initBLECharacteristic(pEnvService);
-  Heat.initBLECharacteristic(pEnvService);
- 
-}
-
-void DHT22Sensor::printSerialHeader() {
-  Serial.println(String(Humidity.getName()+","+Temp.getName()+","+Dew.getName()+","+Heat.getName()));
-}
-
-void DHT22Sensor::printSerialData() {
-  Serial.println(String(Humidity.getSValue()+","+Temp.getSValue()+","+Dew.getSValue()+","+Heat.getSValue()));
-}
-
-void DHT22Sensor::setBLEData() {
-  //Define new value and notify to connected client : Definition et notification des nouvelles valeurs 
-  Humidity.setBLECharacteristic();
-  Temp.setBLECharacteristic();
-  Dew.setBLECharacteristic();
-  Heat.setBLECharacteristic();
 }
