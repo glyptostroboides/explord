@@ -10,8 +10,8 @@ const int MaxCharacteristics = 4;
 
 class Sensor {
   private:
-    const uint8_t PowerPin = 4;
-    const uint8_t DataPin = 17;
+    const uint8_t PowerPin = 23;
+    const uint8_t DataPin = 19;
     const uint8_t RXPin = 19;
     const uint8_t TXPin = 21;
     uint8_t Id;
@@ -21,6 +21,7 @@ class Sensor {
     DHTesp dht;
     void initDHT();
     bool readDHT();
+    void initSerial();
     void initLOX();
     bool readLOX();
     void initMHZ();

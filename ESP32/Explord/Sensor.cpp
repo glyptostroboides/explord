@@ -119,13 +119,11 @@ void Sensor::init() {
       break;
     case 2 : //LOX02
       initLOX();
+      break;
     case 3 : //MHZ16
       initMHZ();
-    default : //LOXO2 or MHZ16
-      /* Init the UART connection for LOX02 or MHZ16
-         Baud Rate, Format,RX,TX)*/
-      Serial1.begin(9600, SERIAL_8N1, RXPin, TXPin); // RX then TX (connect sensor pin 19 RX of ESP32 to TX of MHZ16(pin5), and pin 21 TX of ESP32 to RX of MHZ16(pin6))
-  }
+      break;
+       }
 };
 
 bool Sensor::getData() {
@@ -193,8 +191,8 @@ bool Sensor::readDHT() {
   }
   delay(1);
   uint16_t _humidity = (uint16_t) (DHTData.humidity * 100);
-  uint8_t _h[] = {(uint8_t)(_humidity >> 8), (uint8_t)_humidity};
-  CharSet[0]->setValue((uint8_t*)_h, 2);
+  //uint8_t _h[] = {(uint8_t)(_humidity >> 8), (uint8_t)_humidity};
+  CharSet[0]->setValue((uint8_t*)&_humidity, 2);
   int16_t _temperature = (int16_t) (DHTData.temperature * 100);
   CharSet[1]->setValue((uint8_t*)&_temperature, 2);
   int16_t _dew = (int16_t) (dht.computeDewPoint(DHTData.temperature, DHTData.humidity) * 100);
@@ -208,18 +206,27 @@ bool Sensor::readDHT() {
   return true;
 }
 
+
+void Sensor::initSerial() {
+  /* Init the UART connection for LOX02 or MHZ16
+  Baud Rate, Format,RX,TX)*/
+  Serial1.begin(9600, SERIAL_8N1, RXPin, TXPin); // RX then TX (connect sensor pin 19 RX of ESP32 to TX of MHZ16(pin5), and pin 21 TX of ESP32 to RX of MHZ16(pin6))
+}
+
 /*
    LOX-O2 Specific Code
 
 */
 
 void Sensor::initLOX() {
+  initSerial();
   Name = String("LOX");
   CharNb = 4;
   CharSet[0] = &O2;
   CharSet[1] = &Temp;
   CharSet[2] = &Pressure;
   CharSet[3] = &PPO2;
+  Serial.println("LOX initialized");
 }
 
 bool Sensor::readLOX() {
@@ -243,7 +250,7 @@ bool Sensor::readLOX() {
     CharSet[2]->setSValue(LoxD.substring(20, 24));
     uint32_t _PPO2 = String(LoxD.substring(3, 7) + LoxD.charAt(8) + "00").toInt(); // extract from O xxxx.x : xxxxx in millibar with one decimal converted to pascal with one decimal
     CharSet[3]->setValue((uint8_t*)&_PPO2, 4);
-    CharSet[3]->setSValue(LoxD.substring(20, 24));
+    CharSet[3]->setSValue(LoxD.substring(3, 9));
     return true;
   }
 }
@@ -253,10 +260,12 @@ bool Sensor::readLOX() {
 */
 
 void Sensor::initMHZ() {
+  initSerial();
   Name = String("MHZ");
   CharNb = 2;
   CharSet[0] = &CO2;
   CharSet[1] = &Temp;
+  Serial.println("MHZ initialized");
 }
 
 bool Sensor::readMHZ() {

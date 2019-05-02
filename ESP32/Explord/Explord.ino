@@ -19,6 +19,9 @@
 
 /*Define the pin for builtin LEDPin : Definition de la broche pour la  intégrée 22 et non 21 comme l'indique le peu de documentation*/
 const int LEDPin = 22;
+const int PlugPin1 = 16;
+const int PlugPin2 = 17;
+const int PlugPin3 = 18;
 const String deviceName = "Explord-";
 const String deviceNumber = "01"; //added to the Sensor specific device name
 
@@ -46,20 +49,24 @@ const BLEUUID EnvServiceUUID = BLEUUID((uint16_t)0x181A); // 0x181A is the servi
  */
 const BLEUUID CustomServiceUUID = BLEUUID("00004860-1000-2000-3000-6578706c6f72"); //like all custom characteristics start with 0000486*
 const BLEUUID DelayUUID = BLEUUID("00004861-1000-2000-3000-6578706c6f72");
+const BLEUUID MultiConnectUUID = BLEUUID("00004862-1000-2000-3000-6578706c6f72");
 /*
   BLE Server, Environnmental Sensing Service and Custon Service pointers and for the Sensor singleton
   Declaration des pointeurs pour le serveur BLE, le service des données environnementales, le service BLE personnel et le singleton de la classe Sensor
 */
-BLEServer* pServer = NULL;
+static BLEServer* pServer = NULL;
+static BLEAdvertising* pAdvertising = NULL;
 static BLEService* pEnvService = NULL;
 static BLEService* pCustomService = NULL;
 Sensor* pSensor;
 
 
-/*Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en millisecondes*/
-uint16_t readDelay = 1000;
-BLECharacteristic* pDelay = NULL;
+/*Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes*/
+uint32_t readDelay = 1;
+static BLECharacteristic* pDelay = NULL;
 
+uint8_t setMultiConnect = 0;
+static BLECharacteristic* pMultiConnect = NULL;
 /*
   Value to store the BLE server connection state
   Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
@@ -75,7 +82,7 @@ bool oldDeviceConnected = false;
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
       deviceConnected = true;
-      //BLEDevice::startAdvertising(); // needed to support multi-connect, that mean more than one client connected to server, must be commented if using BLE 4.0 device
+      if (setMultiConnect == 1) { BLEDevice::startAdvertising();} // needed to support multi-connect, that mean more than one client connected to server, must be commented if using BLE 4.0 device
     };
 
     void onDisconnect(BLEServer* pServer) {
@@ -87,36 +94,44 @@ class MyServerCallbacks: public BLEServerCallbacks {
  * Callbacks fonction launched when a value of the custom service is modified by a BLE client
  * Fonction définie par la bibliothèque est lancée lorsqu'une valeur a été modifiée par un client BLE
  */
-class MyCallbacks: public BLECharacteristicCallbacks {
+class ClientCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string value = pCharacteristic->getValue();
-      if (value.length() > 0) {
-        readDelay = atoi(value.c_str());
-        Serial.print("New delay value");
-      }
+      uint8_t* pData = pCharacteristic->getData();
+      if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
+      else if(pCharacteristic == pMultiConnect) {
+        memcpy(&setMultiConnect,pData,1);
+        pAdvertising->start();
+        }
     }
 };
 
-#ifdef DHT_22
-uint8_t Sensor_type = 1;
-//String Sensor_name ="DHT";
-#endif
+static ClientCallbacks* pClientCallbacks = NULL;
 
-#ifdef MHZ16
-uint8_t Sensor_type = 3;
-//String Sensor_name ="MHZ"
-//Sensor sensor;
-#endif
-
-#ifdef LOX02
-uint8_t Sensor_type = 2;
-//String Sensor_name ="LOX"
-//Sensor sensor;
-#endif
+uint8_t getSensorId() { // Get the sensor id by checking the code pin which are high : detection du capteur connecté en identifiant les connecteurs HIGH
+  //For testing purpose in order to use this pin as power pin
+  pinMode(23, OUTPUT);
+  digitalWrite(23, HIGH);
+  delay(10);
+  pinMode(PlugPin1, INPUT);
+  pinMode(PlugPin2, INPUT);
+  pinMode(PlugPin3, INPUT);
+  int Pin1 = digitalRead(PlugPin1);
+  int Pin2 = digitalRead(PlugPin2);
+  int Pin3 = digitalRead(PlugPin3);
+  uint8_t sensor_id = Pin1 + 2*Pin2 + 4*Pin3;
+  digitalWrite(23,LOW);
+  Serial.println(sensor_id);
+  return sensor_id;
+}
 
 void setup() {
-  pinMode(LEDPin, OUTPUT);
-  pSensor = new Sensor(Sensor_type);
+  /* Init the serial connection through USB
+     Demarrage de la connection serie a travers le port USB
+  */
+  Serial.begin(115200);
+
+  pinMode(LEDPin, OUTPUT);  
+  pSensor = new Sensor(getSensorId());
   pSensor->init();
   /*
      Define the power pin for the DHT in order to get it of when not connected
@@ -124,11 +139,7 @@ void setup() {
      Cela permet également de téléverser avec le composant soudé sinon il faudrait le déconnecter
   */
   pSensor->powerOn();
-  /* Init the serial connection through USB
-     Demarrage de la connection serie a travers le port USB
-  */
-  Serial.begin(115200);
-
+  
   //Init the BLE Server : Demarrage du serveur BLE
   // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
   BLEDevice::init((deviceName + pSensor->getName() + "-" + deviceNumber).c_str());
@@ -143,23 +154,30 @@ void setup() {
   // Create all the BLE Characteristics according to the sensor plugged into the module : création des caractéristiques BLE en fonction du capteur connecté
   pSensor->configBLEService(pEnvService);
 
-  // Create a BLE characteristic to old the timespan between two readings
+  // Create a BLE characteristic to old the timespan between two readings : Creation d'une caractéristiques contenant l'intervalle entre deux mesures : 4 octets
   pDelay = pCustomService->createCharacteristic(DelayUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
-  pDelay->setCallbacks(new MyCallbacks());
-  pDelay->setValue("1000");
+  pClientCallbacks = new ClientCallbacks();
+  pDelay->setCallbacks(pClientCallbacks);
+  pDelay->setValue((uint8_t*)&readDelay,4);
+
+  // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : default is false : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
+  pMultiConnect = pCustomService->createCharacteristic(MultiConnectUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  pMultiConnect->setCallbacks(pClientCallbacks);
+  pMultiConnect->setValue((uint8_t*)&setMultiConnect,1);
+
   // Start the services : Demarrage des services sur les données environnementales et du service personnalisé
   pEnvService->start();
   pCustomService->start();
 
   // Start advertising : Demarrage des notifications pour le client
-  BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+  pAdvertising = pServer->getAdvertising();
   pAdvertising->addServiceUUID(EnvServiceUUID);
   pAdvertising->setScanResponse(false);
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
-  BLEDevice::startAdvertising();
+  pAdvertising->start();
   //Serial.println("Waiting a client connection to notify... : En attente d'une connection BLE pour notifier");
   pSensor->printSerialHeader();
-  delay(readDelay); // The DHT need about 1 second to calculate new values : Il faut laisser du temps au DHT pour calculer l'humidité et la température
+  delay(readDelay*1000); // The DHT need about 1 second to calculate new values : Il faut laisser du temps au DHT pour calculer l'humidité et la température
 }
 
 void loop() {
@@ -174,7 +192,7 @@ void loop() {
     }
     delay(100);
     digitalWrite(LEDPin, LOW);
-    delay(readDelay - 100); // The DHT22 need about 1 second to calculate new values : pour le DHT22 il faut au moins 1 seconde
+    delay((readDelay*1000) - 100); // The DHT22 need about 1 second to calculate new values : pour le DHT22 il faut au moins 1 seconde
 
   }
 
