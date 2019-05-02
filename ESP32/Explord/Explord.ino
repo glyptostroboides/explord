@@ -186,6 +186,9 @@ void setup() {
 }
 
 void loop() {
+  /*
+   * Read the sensor data according to the delay and send it through BLE and Serial
+   */
   if(millis() > time_now + (readDelay*1000)) {
     time_now=millis();
     if (pSensor->getData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
@@ -200,18 +203,20 @@ void loop() {
       LedOn=true;
     }
   }
+  /*Turn of the led lighted on after last reading*/
   if(LedOn and (millis() > LedTime + BlinkTime)) {
     LedTime=millis();
     digitalWrite(LEDPin, LOW);
     LedOn=false;
   }
-  
-  // disconnecting
+  /*
+   * BLE Connecting and Disconnecting stuff
+   */
+  // disconnecting // give the bluetooth stack the chance to get things ready : si aucun client n'est connecté le capteur retente de proposer des données
   if (!deviceConnected and oldDeviceConnected and (millis()> ReadvertisingTime+ 500 )) {
     ReadvertisingTime=millis();
-    //delay(500); // give the bluetooth stack the chance to get things ready : si le client n'est pas connecté le capteur retente de proposer des données
-    //pServer->startAdvertising(); // restart advertising
-    pAdvertising->start();
+    //pServer->startAdvertising(); 
+    pAdvertising->start(); // restart advertising
     //Serial.println("Restart advertising");
     oldDeviceConnected = deviceConnected;
   }
@@ -221,4 +226,26 @@ void loop() {
     //Serial.println("Connection to a BLE client done");
     oldDeviceConnected = deviceConnected;
   }
+  /*
+   * Serial stuff to read the incoming settings and order through USB Serial port
+   */
+  if (Serial.available()) {
+    String incomingString = Serial.readStringUntil('\r');
+    char incomingOrder = incomingString.charAt(0);
+    String incomingParameter = incomingString.substring(1);
+    if (incomingOrder == 'D') {
+      readDelay=incomingParameter.toInt();
+    }
+    if (incomingOrder == 'M') {
+      if (incomingString.charAt(1) == '0'){setMultiConnect=0;}
+      if (incomingString.charAt(1) == '1'){setMultiConnect=1;}
+    }
+    if (incomingOrder =='H') {
+      pSensor->printSerialHeader();
+    }
+    if (incomingOrder =='N') {
+    Serial.println(String(deviceName + pSensor->getName() + "-" + deviceNumber));
+    }
+  }
+  
 }
