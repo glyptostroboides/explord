@@ -18,6 +18,9 @@
 #define DHT_22
 
 /*Define the pin for builtin LEDPin : Definition de la broche pour la  intégrée 22 et non 21 comme l'indique le peu de documentation*/
+unsigned long LedTime=0;
+unsigned long BlinkTime=30;
+bool LedOn=false;
 const int LEDPin = 22;
 const int PlugPin1 = 16;
 const int PlugPin2 = 17;
@@ -62,6 +65,7 @@ Sensor* pSensor;
 
 
 /*Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes*/
+unsigned long time_now = 0; // for the timer for the action inside the main loop
 uint32_t readDelay = 1;
 static BLECharacteristic* pDelay = NULL;
 
@@ -72,6 +76,7 @@ static BLECharacteristic* pMultiConnect = NULL;
   Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
 */
 
+unsigned long ReadvertisingTime = 0;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
@@ -154,7 +159,7 @@ void setup() {
   // Create all the BLE Characteristics according to the sensor plugged into the module : création des caractéristiques BLE en fonction du capteur connecté
   pSensor->configBLEService(pEnvService);
 
-  // Create a BLE characteristic to old the timespan between two readings : Creation d'une caractéristiques contenant l'intervalle entre deux mesures : 4 octets
+  // Create a BLE characteristic to old the timespan between two readings : Creation d'une caractéristique contenant l'intervalle entre deux mesures : 4 octets
   pDelay = pCustomService->createCharacteristic(DelayUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
   pClientCallbacks = new ClientCallbacks();
   pDelay->setCallbacks(pClientCallbacks);
@@ -181,32 +186,39 @@ void setup() {
 }
 
 void loop() {
-  if (pSensor->getData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
-    digitalWrite(LEDPin, HIGH);
-    pSensor->printSerialData();
-
-    if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
-      //Define new value and notify to connected client : Definition et notification des nouvelles valeurs
-      //Serial.println("Sending data through BLE");
-      pSensor->setBLEData();
+  if(millis() > time_now + (readDelay*1000)) {
+    time_now=millis();
+    if (pSensor->getData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
+      pSensor->printSerialData();  
+      if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
+        //Define new value and notify to connected client : Definition et notification des nouvelles valeurs
+        //Serial.println("Sending data through BLE");
+        pSensor->setBLEData();
+      }
+      digitalWrite(LEDPin, HIGH);
+      LedTime=millis();
+      LedOn=true;
     }
-    delay(100);
-    digitalWrite(LEDPin, LOW);
-    delay((readDelay*1000) - 100); // The DHT22 need about 1 second to calculate new values : pour le DHT22 il faut au moins 1 seconde
-
   }
-
+  if(LedOn and (millis() > LedTime + BlinkTime)) {
+    LedTime=millis();
+    digitalWrite(LEDPin, LOW);
+    LedOn=false;
+  }
+  
   // disconnecting
-  if (!deviceConnected && oldDeviceConnected) {
-    delay(500); // give the bluetooth stack the chance to get things ready : si le client n'est pas connecté le capteur retente de proposer des données
-    pServer->startAdvertising(); // restart advertising
-    Serial.println("Restart advertising");
+  if (!deviceConnected and oldDeviceConnected and (millis()> ReadvertisingTime+ 500 )) {
+    ReadvertisingTime=millis();
+    //delay(500); // give the bluetooth stack the chance to get things ready : si le client n'est pas connecté le capteur retente de proposer des données
+    //pServer->startAdvertising(); // restart advertising
+    pAdvertising->start();
+    //Serial.println("Restart advertising");
     oldDeviceConnected = deviceConnected;
   }
   // connecting
   if (deviceConnected && !oldDeviceConnected) {
     // do stuff here on connecting
-    Serial.println("Connection to a BLE client done");
+    //Serial.println("Connection to a BLE client done");
     oldDeviceConnected = deviceConnected;
   }
 }
