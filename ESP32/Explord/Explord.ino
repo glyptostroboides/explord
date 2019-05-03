@@ -5,11 +5,7 @@
 
 /*
    This part is not specific to any sensor. BLE Server and Services that are used by all sensorts
-
 */
-
-
-
 /*
  * 
  */
@@ -40,6 +36,15 @@ const int PlugPin3 = 18;
 const int EEPROM_SIZE = 64;
 byte SerialOn = 1;
 byte BLEOn = 1;
+byte LogOn = 1;
+
+/*Define the logging capabilities to the SD Card*/
+#include "Log.h"
+
+Log* pLog;
+ 
+// Save reading number on RTC memory
+RTC_DATA_ATTR int readingID = 0;
 
 /* BLE for ESP32 default library on ESP32-arduino framework
   / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
@@ -137,7 +142,7 @@ uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which
   int Pin3 = digitalRead(PlugPin3);
   uint8_t sensor_id = Pin1 + 2*Pin2 + 4*Pin3;
   digitalWrite(23,LOW);
-  Serial.println(sensor_id);
+  if (sensor_id==0) {Serial.println("No sensor connected");}
   return sensor_id;
 }
 
@@ -185,23 +190,23 @@ void setup() {
   /*Start the EEPROM memory management and get the module persistant state values*/
   EEPROM.begin(EEPROM_SIZE);
   SerialOn= EEPROM.read(0);
-  BLEOn=EEPROM.read(1);   
+  BLEOn=EEPROM.read(1);
+  LogOn=EEPROM.read(2);   
   /* Init the serial connection through USB
      Demarrage de la connection serie a travers le port USB
   */
   Serial.begin(115200);
-  pSensor = new Sensor(getPluggedSensor());
+  uint8_t plugged_sensor = getPluggedSensor();
+  pSensor = new Sensor(plugged_sensor);
   pSensor->init();
-  /*
-     Define the power pin for the DHT in order to get it of when not connected
-     Définition de la broche pour alimenter le DHT quand il est utilisé mais pas lorsque le capteur est en charge
-     Cela permet également de téléverser avec le composant soudé sinon il faudrait le déconnecter
-  */
   pSensor->powerOn();
-  if (BLEOn) {setBLEServer();}
   
-  //Serial.println("Waiting a client connection to notify... : En attente d'une connection BLE pour notifier");
-  pSensor->printSerialHeader();
+  if (BLEOn) {setBLEServer();}  
+  if (SerialOn) {pSensor->printSerialHeader();}
+  if (LogOn) {
+    pLog = new Log(pSensor);
+    pLog->initSD();
+  }
   delay(1000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
 }
 
@@ -211,13 +216,14 @@ void loop() {
    */
   if(millis() > DelayTime + (readDelay*1000)) {
     DelayTime=millis();
-    if (pSensor->getData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
+    if (pSensor->readData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
       if(SerialOn){pSensor->printSerialData();}  
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
         //Define new value and notify to connected client : Definition et notification des nouvelles valeurs
         //Serial.println("Sending data through BLE");
         pSensor->setBLEData();
       }
+      if (LogOn) {pLog->logSD();}
       digitalWrite(LEDPin, HIGH);
       LedTime=millis();
       LedOn=true;
@@ -289,6 +295,22 @@ void loop() {
         EEPROM.write(1,1);
         EEPROM.commit();
       }
+    }
+    if (incomingOrder =='L') {
+      if(LogOn){
+        LogOn=0;
+        EEPROM.write(2,0);
+        EEPROM.commit();
+        }
+      else{
+        LogOn=1;
+        EEPROM.write(2,1);
+        EEPROM.commit();
+      }
+    }
+    if (incomingOrder =='R') {
+      pLog->readFile("/Explord.csv");
+      Serial.println("****************END*******************");
     }
   }
   

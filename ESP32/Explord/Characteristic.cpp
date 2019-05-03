@@ -7,23 +7,23 @@
 
 
 String Characteristic::getName() {
-  return Characteristic::_Name;
+  return _Name;
 }
 
 void Characteristic::setValue(uint8_t* d_value, size_t value_size) {
   for (int n = 0; n < value_size; n++) {
     //Characteristic::_dvalue[n]= *(d_value + n);
-    Characteristic::_value[n] = d_value[n];
+    _value[n] = d_value[n];
     //Serial.println(Characteristic::_value[n],HEX);
   }
 }
 
 String Characteristic::getSValue() {
-  return Characteristic::_svalue;
+  return _svalue;
 }
 
 void Characteristic::setSValue(String s_value) {
-  Characteristic::_svalue = s_value;
+  _svalue = s_value;
 }
 
 /*

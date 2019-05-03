@@ -126,7 +126,7 @@ void Sensor::init() {
        }
 };
 
-bool Sensor::getData() {
+bool Sensor::readData() {
   switch (Id)
   {
     case 1 : //DHT22
@@ -144,26 +144,40 @@ void Sensor::configBLEService(BLEService* pService) {
   }
 }
 
-void Sensor::printSerialHeader() {
-  Serial.print(CharSet[0]->getName());
-  for (int n = 1; n < CharNb; n++) {
-    Serial.print(String("," + CharSet[n]->getName()));
-  }
-  Serial.println("");
-}
-
-void Sensor::printSerialData() {
-  Serial.print(CharSet[0]->getSValue());
-  for (int n = 1; n < CharNb; n++) {
-    Serial.print(String("," + CharSet[n]->getSValue()));
-  }
-  Serial.println("");
-}
-
 void Sensor::setBLEData() {
   for (int n = 0; n < CharNb; n++) {
     CharSet[n]->setBLECharacteristic();
   }
+}
+
+void Sensor::printSerialHeader() {
+  /*Serial.print(CharSet[0]->getName());
+  for (int n = 1; n < CharNb; n++) {
+    Serial.print(String("," + CharSet[n]->getName()));
+  }
+  Serial.println("");*/
+  Serial.println(printHeader());
+}
+
+void Sensor::printSerialData() {
+  /*Serial.print(CharSet[0]->getSValue());
+  for (int n = 1; n < CharNb; n++) {
+    Serial.print(String("," + CharSet[n]->getSValue()));
+  }
+  Serial.println("");*/
+  Serial.println(printStringData());
+}
+
+String Sensor::printStringData() {
+  String Data = CharSet[0]->getSValue();
+  for (int n = 1; n < CharNb; n++) {Data.concat(String("," + CharSet[n]->getSValue()));}
+  return Data;
+}
+
+String Sensor::printHeader() {
+  String Header = CharSet[0]->getName();
+  for (int n = 1; n < CharNb; n++) {Header.concat(String("," + CharSet[n]->getName()));}
+  return Header;
 }
 
 /*

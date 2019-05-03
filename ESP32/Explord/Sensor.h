@@ -34,8 +34,10 @@ class Sensor {
     String getName() {
       return Name;
     };
-    bool getData();
+    bool readData();
     void configBLEService(BLEService* pService);
+    String printHeader();
+    String printStringData();
     void printSerialHeader();
     void printSerialData();
     void setBLEData();
