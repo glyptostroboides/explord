@@ -5,8 +5,6 @@
 
 const int MaxCharacteristics = 4;
 
-
-
 class Sensor {
   protected:
     const uint8_t PowerPin = 23;
@@ -20,13 +18,8 @@ class Sensor {
     void initSerial();
     Characteristic* CharSet[MaxCharacteristics]={NULL};
   public:
-    //Sensor(uint8_t sensor_id): Id(sensor_id) {};
     Sensor(String sname, uint8_t nbchar, Characteristic* c1,Characteristic* c2,Characteristic* c3,Characteristic* c4) : 
-      Name(sname), 
-      CharNb(nbchar),
-      CharSet{c1,c2,c3,c4}
-     {};
-    //void addCharacteristic(Characteristic*,uint8_t);
+      Name(sname), CharNb(nbchar), CharSet{c1,c2,c3,c4} {};
     String getName() { return Name; };
     void powerOn();
     void powerOff();

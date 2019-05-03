@@ -1,6 +1,11 @@
 #include "Drivers.h"
 #include "Sensor.h"
 
+
+/*
+   DHT22 Specific Code
+*/
+
 void DHT::init(){
    /* Init the I2C connection to the DHT sensor*/
   dht.setup(DataPin, DHTesp::DHT22);
@@ -30,6 +35,9 @@ bool DHT::readData(){
   return true;
 }
 
+/*
+   LOX02 Specific Code
+*/
 void LOX::init(){
    /* Init the Serial connection to the LOX sensor*/
     initSerial();  
@@ -60,6 +68,10 @@ bool LOX::readData(){
     return true;
   }
 }
+
+/*
+   MHZ Specific Code
+*/
 
 void MHZ::init(){
    /* Init the Serial connection to the MHZ sensor*/
