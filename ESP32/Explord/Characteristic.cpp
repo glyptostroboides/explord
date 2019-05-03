@@ -6,9 +6,9 @@
 */
 
 
-String Characteristic::getName() {
-  return _Name;
-}
+//String Characteristic::getName()const {
+//  return _Name;
+//}
 
 void Characteristic::setValue(uint8_t* d_value, size_t value_size) {
   for (int n = 0; n < value_size; n++) {
@@ -18,9 +18,9 @@ void Characteristic::setValue(uint8_t* d_value, size_t value_size) {
   }
 }
 
-String Characteristic::getSValue() {
-  return _svalue;
-}
+//String Characteristic::getSValue()const {
+//  return _svalue;
+//}
 
 void Characteristic::setSValue(String s_value) {
   _svalue = s_value;

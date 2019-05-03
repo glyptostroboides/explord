@@ -12,10 +12,11 @@
 const String deviceName = "Explord-";
 const String deviceNumber = "01"; //added to the Sensor specific device name
 
-/*Define the pin for builtin LEDPin : Definition de la broche pour la  intégrée 22 et non 21 comme l'indique le peu de documentation*/
+
 unsigned long LedTime=0;
 unsigned long BlinkTime=30;
 bool LedOn=false;
+/*Define the pin for builtin LEDPin : Definition de la broche pour la  intégrée 22 et non 21 comme l'indique le peu de documentation*/
 const int LEDPin = 22;
 
 /*Define the pin for the Plug and Play feature of the module : définition des connecteurs qui servent à déterminer le capteur connecté au démarrage du module*/
@@ -55,6 +56,7 @@ RTC_DATA_ATTR int readingID = 0;
 
 #include "Characteristic.h"
 #include "Sensor.h"
+#include "Drivers.h"
 
 /*
  * Define the UUID for the BLE GATT environnmental sensing service used by all sensors
@@ -197,10 +199,19 @@ void setup() {
   */
   Serial.begin(115200);
   uint8_t plugged_sensor = getPluggedSensor();
-  pSensor = new Sensor(plugged_sensor);
+  switch(plugged_sensor) {
+    case 1: 
+      pSensor = new DHT();
+      break;
+    case 2:
+      pSensor = new LOX();
+      break;
+    case 3:
+      pSensor = new MHZ();
+      break;
+  }
   pSensor->init();
   pSensor->powerOn();
-  
   if (BLEOn) {setBLEServer();}  
   if (SerialOn) {pSensor->printSerialHeader();}
   if (LogOn) {
