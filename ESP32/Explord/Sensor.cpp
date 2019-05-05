@@ -135,6 +135,9 @@ void Sensor::printSerialData() {
 String Sensor::printStringData() {
   String Data = CharSet[0]->getSValue();
   for (int n = 1; n < CharNb; n++) {Data.concat(String("," + CharSet[n]->getSValue()));}
+  Serial.println("Hello from printStringData :");
+  Serial.println(Data);
+  Serial.println("By from printStringData !!");
   return Data;
 }
 

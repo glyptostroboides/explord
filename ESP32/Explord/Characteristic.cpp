@@ -14,6 +14,8 @@ void Characteristic::setValue(uint8_t* d_value, size_t value_size) {
   for (int n = 0; n < value_size; n++) {
     //Characteristic::_dvalue[n]= *(d_value + n);
     _value[n] = d_value[n];
+    Serial.println("Hello from Characteristic::setValue :");
+    Serial.println(_value[n]);
     //Serial.println(Characteristic::_value[n],HEX);
   }
 }

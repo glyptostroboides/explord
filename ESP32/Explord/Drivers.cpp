@@ -108,3 +108,23 @@ bool MHZ::readData(){
     return true;
   }
 }
+
+/*
+ * DS18B20 Specific code
+ */
+
+void DS::init(){
+  tempSensor.begin();
+  tempSensor.requestTemperaturesByIndex(0);
+}
+
+bool DS::readData(){
+  float temp=tempSensor.getTempCByIndex(0);
+  int16_t _Temp=(int)(temp*100);
+  Serial.println("Hello from DS::readData :");
+  Serial.println(_Temp);
+  CharSet[0]->setValue((uint8_t*)&_Temp, 2);
+  CharSet[0]->setSValue(String(_Temp));
+  tempSensor.requestTemperaturesByIndex(0);
+}
+ 

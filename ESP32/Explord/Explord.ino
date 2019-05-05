@@ -37,7 +37,7 @@ const int PlugPin3 = 18;
 const int EEPROM_SIZE = 64;
 byte SerialOn = 1;
 byte BLEOn = 1;
-byte LogOn = 1;
+byte LogOn = 0;
 
 /*Define the logging capabilities to the SD Card*/
 #include "Log.h"
@@ -192,6 +192,7 @@ void setup() {
   /*Start the EEPROM memory management and get the module persistant state values*/
   EEPROM.begin(EEPROM_SIZE);
   SerialOn= EEPROM.read(0);
+  if(SerialOn){Serial.println("Hello I'm there Serial is connected");}
   BLEOn=EEPROM.read(1);
   LogOn=EEPROM.read(2);   
   /* Init the serial connection through USB
@@ -208,6 +209,9 @@ void setup() {
       break;
     case 3:
       pSensor = new MHZ();
+      break;
+    case 4:
+      pSensor = new DS();
       break;
   }
   pSensor->init();
