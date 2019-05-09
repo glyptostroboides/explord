@@ -121,10 +121,46 @@ void DS::init(){
 bool DS::readData(){
   float temp=tempSensor.getTempCByIndex(0);
   int16_t _Temp=(int)(temp*100);
-  Serial.println("Hello from DS::readData :");
-  Serial.println(_Temp);
   CharSet[0]->setValue((uint8_t*)&_Temp, 2);
-  CharSet[0]->setSValue(String(_Temp));
+  CharSet[0]->setSValue(String(temp));
   tempSensor.requestTemperaturesByIndex(0);
+  return true;
 }
- 
+
+/*
+ * TSL2561 Specific code
+ */
+
+void TSL::init(){
+  // Initialize the SFE_TSL2561 library 
+  //initWire();// Not Working
+  Wire.begin(19,21); // Not Working : need to modify the library call to Wire
+  light.begin();
+  light.setTiming(0,1,ms);
+  light.setPowerUp();
+  unsigned char ID;
+  if (light.getID(ID))
+  {
+    Serial.print("Got factory ID: 0X");
+    Serial.print(ID, HEX);
+    Serial.println(", should be 0X5X");
+  }
+  // Most library commands will return true if communications was successful,
+  // and false if there was a problem. You can ignore this returned value,
+  // or check whether a command worked correctly and retrieve an error code:
+  else
+  {
+    byte error = light.getError();
+    Serial.println(error);
+    Serial.println("Not connected to sensor");
+  }
+
+}
+
+bool TSL::readData(){
+  if(TSL::light.getData(data0,data1)){
+    if(TSL::light.getLux(0,ms,data0,data1,TSL::lux)){Serial.println("Sensor saturated");}
+    else{Serial.println(TSL::lux);}
+  } 
+  return true;
+}

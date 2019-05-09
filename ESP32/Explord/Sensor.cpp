@@ -47,6 +47,16 @@ uint8_t presPPM[] = {
   0x00, // ditto (high byte)
 };
 
+uint8_t presLux[] = {
+  0x06, // Format = 6 = "unsigned 16-bit integer"
+  0x02, // Exponent = 2
+  0x31, // Unit = 0x2731 = "illuminance (lux)" (low byte)
+  0x27, // ditto (high byte)
+  0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
+  0x00, // Description = 0 = "unknown" (low byte)
+  0x00, // ditto (high byte)
+};
+
 /*
    Definition des valeurs mesurées disponibles pour les différents capteurs
    Define the available characteristics for all sensors
@@ -100,6 +110,12 @@ Characteristic Sensor::CO2(
   presPPM,
   4);
 
+Characteristic Sensor::Illuminance(
+  BLEUUID((uint16_t)0x2AFB), // 0x2AFB : Illuminance in lux : uint24 ?, -2
+  "Illuminance",
+  presLux,
+  2);
+
 void Sensor::powerOn() {
   /*
       Power On the sensor when in use
@@ -135,9 +151,6 @@ void Sensor::printSerialData() {
 String Sensor::printStringData() {
   String Data = CharSet[0]->getSValue();
   for (int n = 1; n < CharNb; n++) {Data.concat(String("," + CharSet[n]->getSValue()));}
-  Serial.println("Hello from printStringData :");
-  Serial.println(Data);
-  Serial.println("By from printStringData !!");
   return Data;
 }
 
@@ -151,4 +164,8 @@ void Sensor::initSerial() {
   /* Init the UART connection for LOX02 or MHZ16
   Baud Rate, Format,RX,TX)*/
   Serial1.begin(9600, SERIAL_8N1, RXPin, TXPin); // RX then TX (connect sensor pin 19 RX of ESP32 to TX of MHZ16(pin5), and pin 21 TX of ESP32 to RX of MHZ16(pin6))
+}
+
+void Sensor::initWire() {
+  Wire.begin(19,21); // Not Working : need to modify the library call to Wire
 }

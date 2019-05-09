@@ -54,8 +54,8 @@ RTC_DATA_ATTR int readingID = 0;
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-#include "Characteristic.h"
-#include "Sensor.h"
+//#include "Characteristic.h"
+//#include "Sensor.h"
 #include "Drivers.h"
 
 /*
@@ -212,6 +212,9 @@ void setup() {
       break;
     case 4:
       pSensor = new DS();
+      break;
+    case 5:
+      pSensor = new TSL();
       break;
   }
   pSensor->init();

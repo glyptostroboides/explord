@@ -50,13 +50,13 @@ class Characteristic {
     /*
        Valeur au format d'une chaine de caractère
     */
-    String _svalue ="";
+    String _svalue = "";
   public:
     //Class constructor : Constructeur de la classe
     //BLEChar(BLEUUID uuid,String charname,uint8_t* pres,uint8_t* value, size_t value_size): _UUID(uuid),_CharName(charname),_presentation(pres),_value(value), _value_size(value_size){};
     Characteristic(BLEUUID uuid, String cname, uint8_t* pres, size_t value_size): _UUID(uuid), _Name(cname), _presentation(pres), _value_size(value_size) {};
-    String getName()const {return _Name;};
-    String getSValue() {return _svalue;};
+    String getName()const;
+    String getSValue()const;
     void setValue(uint8_t*, size_t);
     void setSValue(String);
     bool initBLECharacteristic(BLEService*);

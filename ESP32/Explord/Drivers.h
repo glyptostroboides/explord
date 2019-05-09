@@ -1,7 +1,10 @@
 #pragma once
 
-#include "Sensor.h"
+/*
+ * DHTesp is an optimised DHT library for the esp32
+ */
 #include <DHTesp.h>
+
 /* Hardware Serial is used to define the Serial ports on the ESP32 that has three serial port
 Inclusion de la bibliotheque HardWareSerial qui permet la gestion d autres ports series avec le microcontrolleur ESP32
 */
@@ -12,7 +15,17 @@ Inclusion de la bibliotheque HardWareSerial qui permet la gestion d autres ports
  */
 #include "OneWire.h"
 #include "DallasTemperature.h"
- 
+
+/*
+ * Wire the I2C library is needed for TSL2561 and BMP280
+ */
+#include <Wire.h>
+
+/* Library for the illuminance sensor */
+#include <SparkFunTSL2561.h>
+
+#include "Sensor.h"
+
 /*
  * DHT22 Sensor : give the humidity and temperature
  */
@@ -58,6 +71,23 @@ class DS : public Sensor {
     DallasTemperature tempSensor;
   public:
     DS(): oneWire(DataPin),tempSensor(&oneWire),Sensor("DS",1,&Temp,NULL,NULL,NULL){};
+    virtual void init();
+    virtual bool readData();   
+};
+
+/*
+ * TSL2561 Sensor : give the luminosity in lux from two sensors
+ */
+
+class TSL : public Sensor {
+  protected:
+    SFE_TSL2561 light;
+    //boolean gain; // Gain setting, 0 = X1, 1 = X16;  
+    unsigned int ms; // Integration ("shutter") time in milliseconds
+    unsigned int data0,data1;
+    double lux;
+  public:
+    TSL() : Sensor("TSL",1,&Illuminance,NULL,NULL,NULL) {};
     virtual void init();
     virtual bool readData();   
 };

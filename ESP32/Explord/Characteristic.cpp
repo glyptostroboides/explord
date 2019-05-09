@@ -6,23 +6,21 @@
 */
 
 
-//String Characteristic::getName()const {
-//  return _Name;
-//}
+String Characteristic::getName()const{
+  return _Name;
+}
+
+String Characteristic::getSValue()const{
+  return _svalue;
+}
 
 void Characteristic::setValue(uint8_t* d_value, size_t value_size) {
   for (int n = 0; n < value_size; n++) {
     //Characteristic::_dvalue[n]= *(d_value + n);
     _value[n] = d_value[n];
-    Serial.println("Hello from Characteristic::setValue :");
-    Serial.println(_value[n]);
     //Serial.println(Characteristic::_value[n],HEX);
   }
 }
-
-//String Characteristic::getSValue()const {
-//  return _svalue;
-//}
 
 void Characteristic::setSValue(String s_value) {
   _svalue = s_value;
