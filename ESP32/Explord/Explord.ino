@@ -35,9 +35,6 @@ const int PlugPin3 = 18;
  */
 #include "EEPROM.h"
 const int EEPROM_SIZE = 64;
-byte SerialOn = 1;
-byte BLEOn = 1;
-byte LogOn = 0;
 
 /*Define the logging capabilities to the SD Card*/
 #include "Log.h"
@@ -72,6 +69,8 @@ const BLEUUID EnvServiceUUID = BLEUUID((uint16_t)0x181A); // 0x181A is the servi
 const BLEUUID CustomServiceUUID = BLEUUID("00004860-1000-2000-3000-6578706c6f72"); //like all custom characteristics start with 0000486*
 const BLEUUID DelayUUID = BLEUUID("00004861-1000-2000-3000-6578706c6f72");
 const BLEUUID MultiConnectUUID = BLEUUID("00004862-1000-2000-3000-6578706c6f72");
+
+const BLEUUID SerialStateUUID = BLEUUID("00004871-1000-2000-3000-6578706c6f72");
 /*
   BLE Server, Environnmental Sensing Service and Custon Service pointers and for the Sensor singleton
   Declaration des pointeurs pour le serveur BLE, le service des données environnementales, le service BLE personnel et le singleton de la classe Sensor
@@ -81,6 +80,10 @@ static BLEAdvertising* pAdvertising = NULL;
 static BLEService* pEnvService = NULL;
 static BLEService* pCustomService = NULL;
 Sensor* pSensor;
+
+byte SerialOn = 1;
+byte BLEOn = 1;
+byte LogOn = 0;
 
 
 /*Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes*/
@@ -129,7 +132,60 @@ class ClientCallbacks: public BLECharacteristicCallbacks {
     }
 };
 
+class StateCallbacks: public BLECharacteristicCallbacks {
+void onWrite(BLECharacteristic *pCharacteristic) {
+      uint8_t* pData = pCharacteristic->getData();
+      //if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
+//      if(pCharacteristic == pMultiConnect) {
+//        memcpy(&setMultiConnect,pData,1);
+//        pAdvertising->start();
+//        }
+    } 
+};
+
+static StateCallbacks* pStateCallbacks = NULL;
+
 static ClientCallbacks* pClientCallbacks = NULL;
+
+
+class State {
+  private :
+    byte _On=1;
+    int _adress=0;
+    BLEUUID _uuid=BLEUUID((uint16_t)0x0000);
+    String _Name="";
+    BLECharacteristic* _pChar;
+    StateCallbacks* _pStateCallbacks = NULL;
+    void setState(byte state) {
+      if (_adress) {
+        EEPROM.write(_adress,(uint8_t) _On);
+        EEPROM.commit();
+        }
+      _On=state;
+    };
+  public :
+    State(int adr,BLEUUID uuid,String Name,StateCallbacks* pstatecallbacks) : _adress(adr),_uuid(uuid),_Name(Name), _pStateCallbacks(pstatecallbacks){};
+    void initState() {
+      if (_adress) {_On = (byte) EEPROM.read(_adress);}    
+    };
+    void initBLEState() {
+      // Create a BLE characteristic 
+      _pChar=pCustomService->createCharacteristic(_uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
+      _pChar->setCallbacks(pStateCallbacks);
+      _pChar->setValue((uint8_t*)&_On,1);   
+    };
+    void switchState(){
+      if (_On) { setState(0);}
+      else { setState(1);}
+      //_pChar->notify();
+    }
+    byte getState() {
+      if (_adress) {_On = (byte) EEPROM.read(_adress);}
+      return _On;
+    }  
+};
+
+State SerialState(1,SerialStateUUID,"SerialState",pStateCallbacks);
 
 uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which are high : detection du capteur connecté en identifiant les connecteurs HIGH
   //For testing purpose in order to use this pin as power pin
@@ -146,6 +202,66 @@ uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which
   digitalWrite(23,LOW);
   if (sensor_id==0) {Serial.println("No sensor connected");}
   return sensor_id;
+}
+
+void checkSerial() {
+  String incomingString = Serial.readStringUntil('\r');
+  char incomingOrder = incomingString.charAt(0);
+  String incomingParameter = incomingString.substring(1);
+  if (incomingOrder == 'D') {
+    readDelay=incomingParameter.toInt();
+  }
+  if (incomingOrder == 'M') {
+    if (incomingString.charAt(1) == '0'){setMultiConnect=0;}
+    if (incomingString.charAt(1) == '1'){setMultiConnect=1;}
+  }
+  if (incomingOrder =='H') {
+    pSensor->printSerialHeader();
+  }
+  if (incomingOrder =='N') {
+    Serial.println(String(deviceName + pSensor->getName() + "-" + deviceNumber));
+  }
+  if (incomingOrder =='S') {
+/*    if(SerialOn){
+      SerialOn=0;
+      EEPROM.write(0,0);
+      EEPROM.commit();
+      }
+    else{
+      SerialOn=1;
+      EEPROM.write(0,1);
+      EEPROM.commit();
+    }*/
+    SerialState.switchState();
+  }
+  if (incomingOrder =='B') {
+    if(BLEOn){
+      BLEOn=0;
+      EEPROM.write(1,0);
+      EEPROM.commit();
+      }
+    else{
+      BLEOn=1;
+      EEPROM.write(1,1);
+      EEPROM.commit();
+    }
+  }
+  if (incomingOrder =='L') {
+    if(LogOn){
+      LogOn=0;
+      EEPROM.write(2,0);
+      EEPROM.commit();
+      }
+    else{
+      LogOn=1;
+      EEPROM.write(2,1);
+      EEPROM.commit();
+    }
+  }
+  if (incomingOrder =='R') {
+    pLog->readFile("/Explord.csv");
+    Serial.println("****************END*******************");
+  }
 }
 
 void setBLEServer() {
@@ -169,6 +285,7 @@ void setBLEServer() {
   pDelay->setCallbacks(pClientCallbacks);
   pDelay->setValue((uint8_t*)&readDelay,4);
 
+  pStateCallbacks = new StateCallbacks();
   // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : default is false : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
   pMultiConnect = pCustomService->createCharacteristic(MultiConnectUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
   pMultiConnect->setCallbacks(pClientCallbacks);
@@ -191,8 +308,9 @@ void setup() {
   pinMode(LEDPin, OUTPUT);
   /*Start the EEPROM memory management and get the module persistant state values*/
   EEPROM.begin(EEPROM_SIZE);
-  SerialOn= EEPROM.read(0);
-  if(SerialOn){Serial.println("Hello I'm there Serial is connected");}
+  //SerialOn= EEPROM.read(0);
+  SerialState.initState();
+  if(SerialState.getState()){Serial.println("Hello I'm there Serial is connected");}
   BLEOn=EEPROM.read(1);
   LogOn=EEPROM.read(2);   
   /* Init the serial connection through USB
@@ -220,7 +338,7 @@ void setup() {
   pSensor->init();
   pSensor->powerOn();
   if (BLEOn) {setBLEServer();}  
-  if (SerialOn) {pSensor->printSerialHeader();}
+  if (SerialState.getState()) {pSensor->printSerialHeader();}
   if (LogOn) {
     pLog = new Log(pSensor);
     pLog->initSD();
@@ -235,7 +353,7 @@ void loop() {
   if(millis() > DelayTime + (readDelay*1000)) {
     DelayTime=millis();
     if (pSensor->readData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
-      if(SerialOn){pSensor->printSerialData();}  
+      if(SerialState.getState()){pSensor->printSerialData();}  
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
         //Define new value and notify to connected client : Definition et notification des nouvelles valeurs
         //Serial.println("Sending data through BLE");
@@ -274,62 +392,6 @@ void loop() {
    * Serial stuff to read the incoming settings and order through USB Serial port
    */
   if (Serial.available()) {
-    String incomingString = Serial.readStringUntil('\r');
-    char incomingOrder = incomingString.charAt(0);
-    String incomingParameter = incomingString.substring(1);
-    if (incomingOrder == 'D') {
-      readDelay=incomingParameter.toInt();
-    }
-    if (incomingOrder == 'M') {
-      if (incomingString.charAt(1) == '0'){setMultiConnect=0;}
-      if (incomingString.charAt(1) == '1'){setMultiConnect=1;}
-    }
-    if (incomingOrder =='H') {
-      pSensor->printSerialHeader();
-    }
-    if (incomingOrder =='N') {
-      Serial.println(String(deviceName + pSensor->getName() + "-" + deviceNumber));
-    }
-    if (incomingOrder =='S') {
-      if(SerialOn){
-        SerialOn=0;
-        EEPROM.write(0,0);
-        EEPROM.commit();
-        }
-      else{
-        SerialOn=1;
-        EEPROM.write(0,1);
-        EEPROM.commit();
-      }
-    }
-    if (incomingOrder =='B') {
-      if(BLEOn){
-        BLEOn=0;
-        EEPROM.write(1,0);
-        EEPROM.commit();
-        }
-      else{
-        BLEOn=1;
-        EEPROM.write(1,1);
-        EEPROM.commit();
-      }
-    }
-    if (incomingOrder =='L') {
-      if(LogOn){
-        LogOn=0;
-        EEPROM.write(2,0);
-        EEPROM.commit();
-        }
-      else{
-        LogOn=1;
-        EEPROM.write(2,1);
-        EEPROM.commit();
-      }
-    }
-    if (incomingOrder =='R') {
-      pLog->readFile("/Explord.csv");
-      Serial.println("****************END*******************");
-    }
+    checkSerial();
   }
-  
 }
