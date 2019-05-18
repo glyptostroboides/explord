@@ -42,7 +42,7 @@ const int EEPROM_SIZE = 64;
 Log* pLog;
  
 // Save reading number on RTC memory, used when the deep sleep is launched
-RTC_DATA_ATTR int readingID = 0;
+//RTC_DATA_ATTR int readingID = 0;
 
 /* BLE for ESP32 default library on ESP32-arduino framework
   / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
@@ -87,8 +87,6 @@ unsigned long DelayTime = 0; // for the timer for the sensor readings inside the
 uint32_t readDelay = 1;
 static BLECharacteristic* pDelay = NULL;
 
-//uint8_t setMultiConnect = 0;
-//static BLECharacteristic* pMultiConnect = NULL;
 /*
   Value to store the BLE server connection state
   Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
@@ -124,30 +122,32 @@ class State {
         EEPROM.write(_adress,(uint8_t) state);
         EEPROM.commit();
         }
-    }
+      if (pChar){ setBLEState();}
+    };
+    void setBLEState() {
+      pChar->setValue((uint8_t*)&state,1);
+    };
   public :
-    State(int adr,BLEUUID id,String Name) : _adress(adr),uuid(id),_Name(Name){};
+    State(int adr,BLEUUID id,String Name) : _adress(adr),uuid(id),_Name(Name) {
+      state = (byte) EEPROM.read(_adress);
+      };
     byte state=1;
     BLEUUID uuid=BLEUUID((uint16_t)0x0000);
     BLECharacteristic* pChar;
-    void initState() {
-      if (_adress) {state = (byte) EEPROM.read(_adress);}    
-    };
-//    void initBLEState(StateCallbacks* pStateCallbacks) {
+    void initBLEState() {
 //      // Create a BLE characteristic 
-//      _pChar=pCustomService->createCharacteristic(_uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
-//      _pChar->setCallbacks(pStateCallbacks);
-//      _pChar->setValue((uint8_t*)&state,1);   
-//    };
+      pChar=pCustomService->createCharacteristic(uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
+      setBLEState(); 
+      };
     void switchState(){
       if (state) { setState(0);}
       else { setState(1);}
-      //_pChar->notify();
-    }
+      pChar->notify();
+    };
     byte isOn() {
       if (_adress) {state = (byte) EEPROM.read(_adress);}
       return state;
-    }  
+    };  
 };
 
 static State* pMultiConnectState;
@@ -232,31 +232,7 @@ void checkSerial() {
       Serial.println("****************END*******************");
       break; 
   }
-//  if (incomingOrder == 'D') {
-//    readDelay=incomingParameter.toInt();
-//  }
-//  if (incomingOrder =='H') {
-//    pSensor->printSerialHeader();
-//  }
-//  if (incomingOrder =='N') {
-//    Serial.println(String(deviceName + pSensor->getName() + "-" + deviceNumber));
-//  }
-//  if (incomingOrder == 'M') {pMultiConnectState->switchState();}
-//  if (incomingOrder =='S') {pSerialState->switchState();}
-//  if (incomingOrder =='B') {pBLEState->switchState();}  
-//  if (incomingOrder =='L') {pLogState->switchState();}
-//  if (incomingOrder =='R') {
-//    pLog->readFile("/Explord.csv");
-//    Serial.println("****************END*******************");
-//  }
 }
-
-/*
-bool setBLEStateChar(State* pState) {
-  pState->pChar = pCustomService->createCharacteristic(pState->uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
-  pState->pChar->setCallbacks(pStateCallbacks);
-  pState->pChar->setValue((uint8_t*)&(pState->state),1);
-}*/
 
 void setBLEServer() {
   //Init the BLE Server : Demarrage du serveur BLE
@@ -281,19 +257,14 @@ void setBLEServer() {
 
   pStateCallbacks = new StateCallbacks();
   // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : default is false : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
-  //setBLEStateChar(pMultiConnectState);
-
-  pMultiConnectState->pChar = pCustomService->createCharacteristic(pMultiConnectState->uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  pMultiConnectState->initBLEState();
   pMultiConnectState->pChar->setCallbacks(pStateCallbacks);
-  pMultiConnectState->pChar->setValue((uint8_t*)&(pMultiConnectState->state),1);
 
-  pSerialState->pChar = pCustomService->createCharacteristic(SerialStateUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  pSerialState->initBLEState();
   pSerialState->pChar->setCallbacks(pStateCallbacks);
-  pSerialState->pChar->setValue((uint8_t*)&(pSerialState->state),1); 
 
-  pLogState->pChar = pCustomService->createCharacteristic(LogStateUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  pLogState->initBLEState();
   pLogState->pChar->setCallbacks(pStateCallbacks);
-  pLogState->pChar->setValue((uint8_t*)&(pLogState->state),1); 
 
   // Start the services : Demarrage des services sur les données environnementales et du service personnalisé
   pEnvService->start();
@@ -312,23 +283,18 @@ void setup() {
   pinMode(LEDPin, OUTPUT);
   /*Start the EEPROM memory management and get the module persistant state values*/
   EEPROM.begin(EEPROM_SIZE);
-  //SerialOn= EEPROM.read(0);
   pStateCallbacks = new StateCallbacks();
+  
   pMultiConnectState = new State(0,MultiConnectStateUUID,"Multiconnect");
-  pMultiConnectState->initState();
   pSerialState = new State(1,SerialStateUUID,"Serial");
-  pSerialState->initState();
-  if(pSerialState->isOn()){Serial.println("Hello I'm there Serial is connected");}
   pBLEState = new State(2,BLEStateUUID,"BLE");
-  pBLEState->initState();
   pLogState = new State(3,LogStateUUID,"Log");
-  pLogState->initState();
-  //BLEOn=EEPROM.read(1);
-  //LogOn=EEPROM.read(2);   
+  
   /* Init the serial connection through USB
      Demarrage de la connection serie a travers le port USB
   */
   Serial.begin(115200);
+  
   uint8_t plugged_sensor = getPluggedSensor();
   switch(plugged_sensor) {
     case 1: 
@@ -347,8 +313,10 @@ void setup() {
       pSensor = new TSL();
       break;
   }
+  
   pSensor->init();
   pSensor->powerOn();
+  
   if (pBLEState->isOn()) {setBLEServer();}  
   if (pSerialState->isOn()) {pSensor->printSerialHeader();}
   if (pLogState->isOn()) {
