@@ -205,23 +205,50 @@ void checkSerial() {
   String incomingString = Serial.readStringUntil('\r');
   char incomingOrder = incomingString.charAt(0);
   String incomingParameter = incomingString.substring(1);
-  if (incomingOrder == 'D') {
-    readDelay=incomingParameter.toInt();
+  switch (incomingOrder) {
+    case 'D' :
+      readDelay=incomingParameter.toInt();
+      break;
+    case 'H' :
+      pSensor->printSerialHeader();
+      break;
+    case 'N' :
+      Serial.println(String(deviceName + pSensor->getName() + "-" + deviceNumber));  
+      break;
+    case 'M' :
+      pMultiConnectState->switchState();
+      break;
+    case 'S' :
+      pSerialState->switchState();
+      break;
+    case 'B' :
+      pBLEState->switchState();
+      break;
+    case 'L' :
+      pLogState->switchState();
+      break;
+    case 'R' :
+      pLog->readFile("/Explord.csv");
+      Serial.println("****************END*******************");
+      break; 
   }
-  if (incomingOrder =='H') {
-    pSensor->printSerialHeader();
-  }
-  if (incomingOrder =='N') {
-    Serial.println(String(deviceName + pSensor->getName() + "-" + deviceNumber));
-  }
-  if (incomingOrder == 'M') {pMultiConnectState->switchState();}
-  if (incomingOrder =='S') {pSerialState->switchState();}
-  if (incomingOrder =='B') {pBLEState->switchState();}  
-  if (incomingOrder =='L') {pLogState->switchState();}
-  if (incomingOrder =='R') {
-    pLog->readFile("/Explord.csv");
-    Serial.println("****************END*******************");
-  }
+//  if (incomingOrder == 'D') {
+//    readDelay=incomingParameter.toInt();
+//  }
+//  if (incomingOrder =='H') {
+//    pSensor->printSerialHeader();
+//  }
+//  if (incomingOrder =='N') {
+//    Serial.println(String(deviceName + pSensor->getName() + "-" + deviceNumber));
+//  }
+//  if (incomingOrder == 'M') {pMultiConnectState->switchState();}
+//  if (incomingOrder =='S') {pSerialState->switchState();}
+//  if (incomingOrder =='B') {pBLEState->switchState();}  
+//  if (incomingOrder =='L') {pLogState->switchState();}
+//  if (incomingOrder =='R') {
+//    pLog->readFile("/Explord.csv");
+//    Serial.println("****************END*******************");
+//  }
 }
 
 /*
