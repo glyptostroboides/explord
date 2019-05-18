@@ -134,28 +134,11 @@ class ClientCallbacks: public BLECharacteristicCallbacks {
 
 static ClientCallbacks* pClientCallbacks = NULL;
 
-
-class StateCallbacks: public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic *pCharacteristic) {
-      //if (pCharacteristic == _pChar) {}
-      //uint8_t* pData = pCharacteristic->getData();
-      //if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
-//      if(pCharacteristic == pMultiConnect) {
-//        memcpy(&setMultiConnect,pData,1);
-//        pAdvertising->start();
-//        }
-    } 
-};
-
-static StateCallbacks* pStateCallbacks = NULL;
-
 class State {
   private :
-    byte _On=1;
     int _adress=0;
     BLEUUID _uuid=BLEUUID((uint16_t)0x0000);
     String _Name="";
-    static BLECharacteristic* _pChar;
     //StateCallbacks* _pStateCallbacks = NULL;
     void setState(byte state) {
       _On=state;
@@ -164,29 +147,19 @@ class State {
         EEPROM.commit();
         }
     }
-//    class StateCallbacks: virtual public BLECharacteristicCallbacks {
-//      public:
-//        void onWrite(BLECharacteristic *pCharacteristic) {
-//        if (pCharacteristic == _pChar) {}
-        //uint8_t* pData = pCharacteristic->getData();
-        //if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
-  //      if(pCharacteristic == pMultiConnect) {
-  //        memcpy(&setMultiConnect,pData,1);
-  //        pAdvertising->start();
-  //        }
-     //   }
-   // };
   public :
     State(int adr,BLEUUID uuid,String Name) : _adress(adr),_uuid(uuid),_Name(Name){};
+    byte _On=1;
+    BLECharacteristic* pChar;
     void initState() {
       if (_adress) {_On = (byte) EEPROM.read(_adress);}    
     };
-    void initBLEState(StateCallbacks* pStateCallbacks) {
-      // Create a BLE characteristic 
-      _pChar=pCustomService->createCharacteristic(_uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
-      _pChar->setCallbacks(pStateCallbacks);
-      _pChar->setValue((uint8_t*)&_On,1);   
-    };
+//    void initBLEState(StateCallbacks* pStateCallbacks) {
+//      // Create a BLE characteristic 
+//      _pChar=pCustomService->createCharacteristic(_uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
+//      _pChar->setCallbacks(pStateCallbacks);
+//      _pChar->setValue((uint8_t*)&_On,1);   
+//    };
     void switchState(){
       if (_On) { setState(0);}
       else { setState(1);}
@@ -199,6 +172,20 @@ class State {
 };
 
 static State* pSerialState;
+
+class StateCallbacks: public BLECharacteristicCallbacks {
+  void onWrite(BLECharacteristic *pCharacteristic) {
+      if (pCharacteristic == pSerialState->pChar) {pSerialState->switchState();}
+      //uint8_t* pData = pCharacteristic->getData();
+      //if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
+//      if(pCharacteristic == pMultiConnect) {
+//        memcpy(&setMultiConnect,pData,1);
+//        pAdvertising->start();
+//        }
+    } 
+};
+
+static StateCallbacks* pStateCallbacks = NULL;
 
 
 uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which are high : detection du capteur connecté en identifiant les connecteurs HIGH
@@ -294,16 +281,21 @@ void setBLEServer() {
   pSensor->configBLEService(pEnvService);
 
   // Create a BLE characteristic to old the timespan between two readings : Creation d'une caractéristique contenant l'intervalle entre deux mesures : 4 octets
-  pDelay = pCustomService->createCharacteristic(DelayUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
   pClientCallbacks = new ClientCallbacks();
+  pDelay = pCustomService->createCharacteristic(DelayUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
   pDelay->setCallbacks(pClientCallbacks);
   pDelay->setValue((uint8_t*)&readDelay,4);
 
-  //pStateCallbacks = new StateCallbacks();
+  pStateCallbacks = new StateCallbacks();
   // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : default is false : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
   pMultiConnect = pCustomService->createCharacteristic(MultiConnectUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
   pMultiConnect->setCallbacks(pClientCallbacks);
   pMultiConnect->setValue((uint8_t*)&setMultiConnect,1);
+
+  pSerialState->pChar = pCustomService->createCharacteristic(SerialStateUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  pSerialState->pChar->setCallbacks(pStateCallbacks);
+  pSerialState->pChar->setValue((uint8_t*)&(pSerialState->_On),1); 
+
 
   // Start the services : Demarrage des services sur les données environnementales et du service personnalisé
   pEnvService->start();
