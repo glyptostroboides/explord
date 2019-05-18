@@ -41,7 +41,7 @@ const int EEPROM_SIZE = 64;
 
 Log* pLog;
  
-// Save reading number on RTC memory
+// Save reading number on RTC memory, used when the deep sleep is launched
 RTC_DATA_ATTR int readingID = 0;
 
 /* BLE for ESP32 default library on ESP32-arduino framework
@@ -132,9 +132,13 @@ class ClientCallbacks: public BLECharacteristicCallbacks {
     }
 };
 
+static ClientCallbacks* pClientCallbacks = NULL;
+
+
 class StateCallbacks: public BLECharacteristicCallbacks {
-void onWrite(BLECharacteristic *pCharacteristic) {
-      uint8_t* pData = pCharacteristic->getData();
+  void onWrite(BLECharacteristic *pCharacteristic) {
+      //if (pCharacteristic == _pChar) {}
+      //uint8_t* pData = pCharacteristic->getData();
       //if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
 //      if(pCharacteristic == pMultiConnect) {
 //        memcpy(&setMultiConnect,pData,1);
@@ -145,30 +149,39 @@ void onWrite(BLECharacteristic *pCharacteristic) {
 
 static StateCallbacks* pStateCallbacks = NULL;
 
-static ClientCallbacks* pClientCallbacks = NULL;
-
-
 class State {
   private :
     byte _On=1;
     int _adress=0;
     BLEUUID _uuid=BLEUUID((uint16_t)0x0000);
     String _Name="";
-    BLECharacteristic* _pChar;
-    StateCallbacks* _pStateCallbacks = NULL;
+    static BLECharacteristic* _pChar;
+    //StateCallbacks* _pStateCallbacks = NULL;
     void setState(byte state) {
+      _On=state;
       if (_adress) {
         EEPROM.write(_adress,(uint8_t) _On);
         EEPROM.commit();
         }
-      _On=state;
-    };
+    }
+//    class StateCallbacks: virtual public BLECharacteristicCallbacks {
+//      public:
+//        void onWrite(BLECharacteristic *pCharacteristic) {
+//        if (pCharacteristic == _pChar) {}
+        //uint8_t* pData = pCharacteristic->getData();
+        //if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
+  //      if(pCharacteristic == pMultiConnect) {
+  //        memcpy(&setMultiConnect,pData,1);
+  //        pAdvertising->start();
+  //        }
+     //   }
+   // };
   public :
-    State(int adr,BLEUUID uuid,String Name,StateCallbacks* pstatecallbacks) : _adress(adr),_uuid(uuid),_Name(Name), _pStateCallbacks(pstatecallbacks){};
+    State(int adr,BLEUUID uuid,String Name) : _adress(adr),_uuid(uuid),_Name(Name){};
     void initState() {
       if (_adress) {_On = (byte) EEPROM.read(_adress);}    
     };
-    void initBLEState() {
+    void initBLEState(StateCallbacks* pStateCallbacks) {
       // Create a BLE characteristic 
       _pChar=pCustomService->createCharacteristic(_uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
       _pChar->setCallbacks(pStateCallbacks);
@@ -185,7 +198,8 @@ class State {
     }  
 };
 
-State SerialState(1,SerialStateUUID,"SerialState",pStateCallbacks);
+static State* pSerialState;
+
 
 uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which are high : detection du capteur connecté en identifiant les connecteurs HIGH
   //For testing purpose in order to use this pin as power pin
@@ -232,7 +246,7 @@ void checkSerial() {
       EEPROM.write(0,1);
       EEPROM.commit();
     }*/
-    SerialState.switchState();
+    pSerialState->switchState();
   }
   if (incomingOrder =='B') {
     if(BLEOn){
@@ -285,7 +299,7 @@ void setBLEServer() {
   pDelay->setCallbacks(pClientCallbacks);
   pDelay->setValue((uint8_t*)&readDelay,4);
 
-  pStateCallbacks = new StateCallbacks();
+  //pStateCallbacks = new StateCallbacks();
   // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : default is false : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
   pMultiConnect = pCustomService->createCharacteristic(MultiConnectUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
   pMultiConnect->setCallbacks(pClientCallbacks);
@@ -309,8 +323,10 @@ void setup() {
   /*Start the EEPROM memory management and get the module persistant state values*/
   EEPROM.begin(EEPROM_SIZE);
   //SerialOn= EEPROM.read(0);
-  SerialState.initState();
-  if(SerialState.getState()){Serial.println("Hello I'm there Serial is connected");}
+  pStateCallbacks = new StateCallbacks();
+  pSerialState = new State(1,SerialStateUUID,"SerialState");
+  pSerialState->initState();
+  if(pSerialState->getState()){Serial.println("Hello I'm there Serial is connected");}
   BLEOn=EEPROM.read(1);
   LogOn=EEPROM.read(2);   
   /* Init the serial connection through USB
@@ -338,7 +354,7 @@ void setup() {
   pSensor->init();
   pSensor->powerOn();
   if (BLEOn) {setBLEServer();}  
-  if (SerialState.getState()) {pSensor->printSerialHeader();}
+  if (pSerialState->getState()) {pSensor->printSerialHeader();}
   if (LogOn) {
     pLog = new Log(pSensor);
     pLog->initSD();
@@ -353,7 +369,7 @@ void loop() {
   if(millis() > DelayTime + (readDelay*1000)) {
     DelayTime=millis();
     if (pSensor->readData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
-      if(SerialState.getState()){pSensor->printSerialData();}  
+      if(pSerialState->getState()){pSensor->printSerialData();}  
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
         //Define new value and notify to connected client : Definition et notification des nouvelles valeurs
         //Serial.println("Sending data through BLE");
