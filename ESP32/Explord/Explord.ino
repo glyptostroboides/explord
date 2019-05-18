@@ -93,8 +93,8 @@ static BLECharacteristic* pDelay = NULL;
 */
 
 unsigned long ReadvertisingTime = 0;
-bool deviceConnected = false;
-bool oldDeviceConnected = false;
+bool BLEConnected = false;
+bool oldBLEConnected = false;
 
 
 /*
@@ -174,12 +174,12 @@ static StateCallbacks* pStateCallbacks = NULL;
 */
 class ServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
-      deviceConnected = true;
+      BLEConnected = true;
       if (pMultiConnectState->isOn()) { BLEDevice::startAdvertising();} // needed to support multi-connect, that mean more than one client connected to server, must be commented if using BLE 4.0 device
     };
 
     void onDisconnect(BLEServer* pServer) {
-      deviceConnected = false;
+      BLEConnected = false;
     }
 };
 
@@ -235,7 +235,7 @@ void checkSerial() {
 }
 
 void setBLEServer() {
-  //Init the BLE Server : Demarrage du serveur BLE
+  //Init the BLE Server : Demarrage du serveur BLE fournissant les valeurs mesurées et les paramétres d'état du module
   // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
   BLEDevice::init((deviceName + pSensor->getName() + "-" + deviceNumber).c_str());
 
@@ -256,13 +256,15 @@ void setBLEServer() {
   pDelay->setValue((uint8_t*)&readDelay,4);
 
   pStateCallbacks = new StateCallbacks();
-  // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : default is false : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
+  // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
   pMultiConnectState->initBLEState();
   pMultiConnectState->pChar->setCallbacks(pStateCallbacks);
-
+  
+  // Create a BLE characteristic that enable Serial : Caractéristique pour activer l'envoie des données par le port série
   pSerialState->initBLEState();
   pSerialState->pChar->setCallbacks(pStateCallbacks);
 
+  // Create a BLE characteristic that enable log to a file on onboard SD Card : Caractéristique pour activer l'enregistrement des mesures sur la carte SD
   pLogState->initBLEState();
   pLogState->pChar->setCallbacks(pStateCallbacks);
 
@@ -283,6 +285,7 @@ void setup() {
   pinMode(LEDPin, OUTPUT);
   /*Start the EEPROM memory management and get the module persistant state values*/
   EEPROM.begin(EEPROM_SIZE);
+  
   pStateCallbacks = new StateCallbacks();
   
   pMultiConnectState = new State(0,MultiConnectStateUUID,"Multiconnect");
@@ -334,9 +337,7 @@ void loop() {
     DelayTime=millis();
     if (pSensor->readData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
       if(pSerialState->isOn()){pSensor->printSerialData();}  
-      if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
-        //Define new value and notify to connected client : Definition et notification des nouvelles valeurs
-        //Serial.println("Sending data through BLE");
+      if (BLEConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
         pSensor->setBLEData();
       }
       if (pLogState->isOn()) {pLog->logSD();}
@@ -354,20 +355,15 @@ void loop() {
   /*
    * BLE Connecting and Disconnecting stuff
    */
-  // disconnecting // give the bluetooth stack the chance to get things ready : si aucun client n'est connecté le capteur retente de proposer des données
-  if (!deviceConnected and oldDeviceConnected and (millis()> ReadvertisingTime+ 500 )) {
+  // disconnecting // give the bluetooth stack the chance to get things ready : si aucun client n'est connecté le capteur retente de proposer des données après 500ms
+  if (!BLEConnected and oldBLEConnected and (millis()> ReadvertisingTime+ 500 )) {
     ReadvertisingTime=millis();
     //pServer->startAdvertising(); 
     pAdvertising->start(); // restart advertising
-    //Serial.println("Restart advertising");
-    oldDeviceConnected = deviceConnected;
+    oldBLEConnected = BLEConnected;
   }
   // connecting
-  if (deviceConnected && !oldDeviceConnected) {
-    // do stuff here on connecting
-    //Serial.println("Connection to a BLE client done");
-    oldDeviceConnected = deviceConnected;
-  }
+  if (BLEConnected && !oldBLEConnected) { oldBLEConnected = BLEConnected; }// Connection to a BLE client done : connection à un client BLE effectuée
   /*
    * Serial stuff to read the incoming settings and order through USB Serial port
    */
