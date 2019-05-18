@@ -68,9 +68,12 @@ const BLEUUID EnvServiceUUID = BLEUUID((uint16_t)0x181A); // 0x181A is the servi
  */
 const BLEUUID CustomServiceUUID = BLEUUID("00004860-1000-2000-3000-6578706c6f72"); //like all custom characteristics start with 0000486*
 const BLEUUID DelayUUID = BLEUUID("00004861-1000-2000-3000-6578706c6f72");
-const BLEUUID MultiConnectUUID = BLEUUID("00004862-1000-2000-3000-6578706c6f72");
 
+const BLEUUID MultiConnectStateUUID = BLEUUID("00004870-1000-2000-3000-6578706c6f72");
 const BLEUUID SerialStateUUID = BLEUUID("00004871-1000-2000-3000-6578706c6f72");
+const BLEUUID LogStateUUID = BLEUUID("00004872-1000-2000-3000-6578706c6f72");
+const BLEUUID BLEStateUUID = BLEUUID("00004873-1000-2000-3000-6578706c6f72");
+
 /*
   BLE Server, Environnmental Sensing Service and Custon Service pointers and for the Sensor singleton
   Declaration des pointeurs pour le serveur BLE, le service des données environnementales, le service BLE personnel et le singleton de la classe Sensor
@@ -81,9 +84,9 @@ static BLEService* pEnvService = NULL;
 static BLEService* pCustomService = NULL;
 Sensor* pSensor;
 
-byte SerialOn = 1;
-byte BLEOn = 1;
-byte LogOn = 0;
+//byte SerialOn = 1;
+//byte BLEOn = 1;
+//byte LogOn = 0;
 
 
 /*Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes*/
@@ -91,8 +94,8 @@ unsigned long DelayTime = 0; // for the timer for the sensor readings inside the
 uint32_t readDelay = 1;
 static BLECharacteristic* pDelay = NULL;
 
-uint8_t setMultiConnect = 0;
-static BLECharacteristic* pMultiConnect = NULL;
+//uint8_t setMultiConnect = 0;
+//static BLECharacteristic* pMultiConnect = NULL;
 /*
   Value to store the BLE server connection state
   Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
@@ -102,20 +105,6 @@ unsigned long ReadvertisingTime = 0;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
-/*
-   Callbacks fontion launched by the server when a connection or a disconnection occur
-   Fonction definie par la bibliotheque qui est lancée lorsque l'état du serveur BLE change : événement : connexion et deconnexion
-*/
-class ServerCallbacks: public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer) {
-      deviceConnected = true;
-      if (setMultiConnect == 1) { BLEDevice::startAdvertising();} // needed to support multi-connect, that mean more than one client connected to server, must be commented if using BLE 4.0 device
-    };
-
-    void onDisconnect(BLEServer* pServer) {
-      deviceConnected = false;
-    }
-};
 
 /*
  * Callbacks fonction launched when a value of the custom service is modified by a BLE client
@@ -125,10 +114,10 @@ class ClientCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
       uint8_t* pData = pCharacteristic->getData();
       if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
-      else if(pCharacteristic == pMultiConnect) {
-        memcpy(&setMultiConnect,pData,1);
-        pAdvertising->start();
-        }
+//      else if(pCharacteristic == pMultiConnect) {
+//        memcpy(&setMultiConnect,pData,1);
+//        pAdvertising->start();
+//        }
     }
 };
 
@@ -140,42 +129,50 @@ class State {
     BLEUUID _uuid=BLEUUID((uint16_t)0x0000);
     String _Name="";
     //StateCallbacks* _pStateCallbacks = NULL;
-    void setState(byte state) {
-      _On=state;
+    void setState(byte istate) {
+      state=istate;
       if (_adress) {
-        EEPROM.write(_adress,(uint8_t) _On);
+        EEPROM.write(_adress,(uint8_t) state);
         EEPROM.commit();
         }
     }
   public :
     State(int adr,BLEUUID uuid,String Name) : _adress(adr),_uuid(uuid),_Name(Name){};
-    byte _On=1;
+    byte state=1;
     BLECharacteristic* pChar;
     void initState() {
-      if (_adress) {_On = (byte) EEPROM.read(_adress);}    
+      if (_adress) {state = (byte) EEPROM.read(_adress);}    
     };
 //    void initBLEState(StateCallbacks* pStateCallbacks) {
 //      // Create a BLE characteristic 
 //      _pChar=pCustomService->createCharacteristic(_uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
 //      _pChar->setCallbacks(pStateCallbacks);
-//      _pChar->setValue((uint8_t*)&_On,1);   
+//      _pChar->setValue((uint8_t*)&state,1);   
 //    };
     void switchState(){
-      if (_On) { setState(0);}
+      if (state) { setState(0);}
       else { setState(1);}
       //_pChar->notify();
     }
-    byte getState() {
-      if (_adress) {_On = (byte) EEPROM.read(_adress);}
-      return _On;
+    byte isOn() {
+      if (_adress) {state = (byte) EEPROM.read(_adress);}
+      return state;
     }  
 };
 
+static State* pMultiConnectState;
 static State* pSerialState;
+static State* pBLEState;
+static State* pLogState;
 
 class StateCallbacks: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
+      if (pCharacteristic == pMultiConnectState->pChar) {
+        pMultiConnectState->switchState();
+        pAdvertising->start();
+        }
       if (pCharacteristic == pSerialState->pChar) {pSerialState->switchState();}
+      if (pCharacteristic == pLogState->pChar) {pLogState->switchState();}
       //uint8_t* pData = pCharacteristic->getData();
       //if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
 //      if(pCharacteristic == pMultiConnect) {
@@ -186,6 +183,21 @@ class StateCallbacks: public BLECharacteristicCallbacks {
 };
 
 static StateCallbacks* pStateCallbacks = NULL;
+
+/*
+   Callbacks fontion launched by the server when a connection or a disconnection occur
+   Fonction definie par la bibliotheque qui est lancée lorsque l'état du serveur BLE change : événement : connexion et deconnexion
+*/
+class ServerCallbacks: public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer) {
+      deviceConnected = true;
+      if (pMultiConnectState->isOn()) { BLEDevice::startAdvertising();} // needed to support multi-connect, that mean more than one client connected to server, must be commented if using BLE 4.0 device
+    };
+
+    void onDisconnect(BLEServer* pServer) {
+      deviceConnected = false;
+    }
+};
 
 
 uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which are high : detection du capteur connecté en identifiant les connecteurs HIGH
@@ -213,8 +225,9 @@ void checkSerial() {
     readDelay=incomingParameter.toInt();
   }
   if (incomingOrder == 'M') {
-    if (incomingString.charAt(1) == '0'){setMultiConnect=0;}
-    if (incomingString.charAt(1) == '1'){setMultiConnect=1;}
+    pMultiConnectState->switchState();
+    //if (incomingString.charAt(1) == '0'){setMultiConnect=0;}
+    //if (incomingString.charAt(1) == '1'){setMultiConnect=1;}
   }
   if (incomingOrder =='H') {
     pSensor->printSerialHeader();
@@ -222,43 +235,9 @@ void checkSerial() {
   if (incomingOrder =='N') {
     Serial.println(String(deviceName + pSensor->getName() + "-" + deviceNumber));
   }
-  if (incomingOrder =='S') {
-/*    if(SerialOn){
-      SerialOn=0;
-      EEPROM.write(0,0);
-      EEPROM.commit();
-      }
-    else{
-      SerialOn=1;
-      EEPROM.write(0,1);
-      EEPROM.commit();
-    }*/
-    pSerialState->switchState();
-  }
-  if (incomingOrder =='B') {
-    if(BLEOn){
-      BLEOn=0;
-      EEPROM.write(1,0);
-      EEPROM.commit();
-      }
-    else{
-      BLEOn=1;
-      EEPROM.write(1,1);
-      EEPROM.commit();
-    }
-  }
-  if (incomingOrder =='L') {
-    if(LogOn){
-      LogOn=0;
-      EEPROM.write(2,0);
-      EEPROM.commit();
-      }
-    else{
-      LogOn=1;
-      EEPROM.write(2,1);
-      EEPROM.commit();
-    }
-  }
+  if (incomingOrder =='S') {pSerialState->switchState();}
+  if (incomingOrder =='B') {pBLEState->switchState();}  
+  if (incomingOrder =='L') {pLogState->switchState();}
   if (incomingOrder =='R') {
     pLog->readFile("/Explord.csv");
     Serial.println("****************END*******************");
@@ -288,14 +267,17 @@ void setBLEServer() {
 
   pStateCallbacks = new StateCallbacks();
   // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : default is false : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
-  pMultiConnect = pCustomService->createCharacteristic(MultiConnectUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
-  pMultiConnect->setCallbacks(pClientCallbacks);
-  pMultiConnect->setValue((uint8_t*)&setMultiConnect,1);
+  pMultiConnectState->pChar = pCustomService->createCharacteristic(MultiConnectStateUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  pMultiConnectState->pChar->setCallbacks(pStateCallbacks);
+  pMultiConnectState->pChar->setValue((uint8_t*)&(pMultiConnectState->state),1);
 
   pSerialState->pChar = pCustomService->createCharacteristic(SerialStateUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
   pSerialState->pChar->setCallbacks(pStateCallbacks);
-  pSerialState->pChar->setValue((uint8_t*)&(pSerialState->_On),1); 
+  pSerialState->pChar->setValue((uint8_t*)&(pSerialState->state),1); 
 
+  pLogState->pChar = pCustomService->createCharacteristic(LogStateUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  pLogState->pChar->setCallbacks(pStateCallbacks);
+  pLogState->pChar->setValue((uint8_t*)&(pLogState->state),1); 
 
   // Start the services : Demarrage des services sur les données environnementales et du service personnalisé
   pEnvService->start();
@@ -316,11 +298,17 @@ void setup() {
   EEPROM.begin(EEPROM_SIZE);
   //SerialOn= EEPROM.read(0);
   pStateCallbacks = new StateCallbacks();
-  pSerialState = new State(1,SerialStateUUID,"SerialState");
+  pMultiConnectState = new State(0,MultiConnectStateUUID,"Multiconnect");
+  pMultiConnectState->initState();
+  pSerialState = new State(1,SerialStateUUID,"Serial");
   pSerialState->initState();
-  if(pSerialState->getState()){Serial.println("Hello I'm there Serial is connected");}
-  BLEOn=EEPROM.read(1);
-  LogOn=EEPROM.read(2);   
+  if(pSerialState->isOn()){Serial.println("Hello I'm there Serial is connected");}
+  pBLEState = new State(2,BLEStateUUID,"BLE");
+  pBLEState->initState();
+  pLogState = new State(3,LogStateUUID,"Log");
+  pLogState->initState();
+  //BLEOn=EEPROM.read(1);
+  //LogOn=EEPROM.read(2);   
   /* Init the serial connection through USB
      Demarrage de la connection serie a travers le port USB
   */
@@ -345,13 +333,13 @@ void setup() {
   }
   pSensor->init();
   pSensor->powerOn();
-  if (BLEOn) {setBLEServer();}  
-  if (pSerialState->getState()) {pSensor->printSerialHeader();}
-  if (LogOn) {
+  if (pBLEState->isOn()) {setBLEServer();}  
+  if (pSerialState->isOn()) {pSensor->printSerialHeader();}
+  if (pLogState->isOn()) {
     pLog = new Log(pSensor);
     pLog->initSD();
   }
-  delay(1000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
+  delay(2000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
 }
 
 void loop() {
@@ -361,13 +349,13 @@ void loop() {
   if(millis() > DelayTime + (readDelay*1000)) {
     DelayTime=millis();
     if (pSensor->readData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
-      if(pSerialState->getState()){pSensor->printSerialData();}  
+      if(pSerialState->isOn()){pSensor->printSerialData();}  
       if (deviceConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
         //Define new value and notify to connected client : Definition et notification des nouvelles valeurs
         //Serial.println("Sending data through BLE");
         pSensor->setBLEData();
       }
-      if (LogOn) {pLog->logSD();}
+      if (pLogState->isOn()) {pLog->logSD();}
       digitalWrite(LEDPin, HIGH);
       LedTime=millis();
       LedOn=true;
