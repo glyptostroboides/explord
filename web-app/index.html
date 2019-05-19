@@ -40,63 +40,72 @@
                 short : "temperature",
                 unit: "°C",
                 min: 0,
-                max: 65
+                max: 65,
+                nb_bit: "Int16"
             },
             "2a7b" : {
                 name : "Point de rosée",
                 short : "dew",
                 unit: "°C",
                 min: 0,
-                max: 65
+                max: 65,
+                nb_bit: "Int16"
             },
             "2a7a" : {
                 name : "Chaleur",
                 short : "heat",
                 unit: "°C",
                 min: 0,
-                max: 65
+                max: 65,
+                nb_bit: "Int16"
             },
             "2a6f" : {
                 name : "Humidité",
                 short : "humidite",
                 unit: "%",
                 min: 0,
-                max: 100
+                max: 100,
+                nb_bit: "Uint16"
             },
             "486a" : {
                 name : "Dioxygène",
                 short : "o2",
                 unit: "%",
                 min: 0,
-                max: 25
+                max: 25,
+                nb_bit: "Uint16"
             },
             "486b" : {
                 name : "Pression partiel en O2",
                 short : "ppo2",
-                unit: "%",
+                unit: "Pa",
                 min: 0,
-                max: 100
+                max: 1000000,
+                nb_bit: "Uint32"
             },
             "2a6d" : {
                 name : "Pression",
                 short : "pression",
                 unit: "Pa",
                 min: 0,
-                max: 10000
+                max: 10000,
+                nb_bit: "Uint32"
             },
             "486c" : {
                 name : "Dioxyde de carbone",
                 short : "co2",
                 unit: "ppm",
                 min: 0,
-                max: 1000
+                max: 1000,
+                nb_bit: "Uint16"
             },
             "2afb" : {
                 name : "Luminosité",
                 short : "lum",
                 unit: "lux",
                 min: 0,
-                max: 100
+                max: 100,
+                nb_bit: "Uint16"
             },
         };
 
@@ -246,17 +255,28 @@
         }
 
         function handleCharacteristicValueChange(event, deviceId) {
-            value = parseValue(event.target.value);
+            let carac_code = event.target.uuid.slice(4,8);
+
+            value = parseValue(event.target.value, _characteristics[carac_code].nb_bit);
+
             document.querySelector(
-              '#value_'+deviceId + '_' + _characteristics[event.target.uuid.slice(4,8)].short
+              '#value_' + deviceId + '_' + _characteristics[carac_code].short
             ).innerHTML = value;
-            _devices[deviceId]["current_value"][event.target.uuid.slice(4,8)] = value;
+            _devices[deviceId]["current_value"][carac_code] = value;
         }
 
-        function parseValue(value) {
+        function parseValue(value, type) {
           value = value.buffer ? value : new DataView(value);
           let result;
-          result = value.getUint16(0, /*littleEndian=*/true) /100;
+          if (type == 'Uint16') {
+              result = value.getUint16(0, /*littleEndian=*/true) /100;
+          }
+          else if (type == 'Int16')  {
+              result = value.getInt16(0, /*littleEndian=*/true) /100;
+          }
+          else if (type == 'Uint32')  {
+              result = value.getUint32(0, /*littleEndian=*/true) /100;
+          }
           return result;
         }
 
