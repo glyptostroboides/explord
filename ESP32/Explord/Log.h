@@ -12,13 +12,15 @@
 
 class Log {
     private:
-      void writeFile(const char * path, const char * message);
-      void appendFile(const char * path, const char * message);
+      //String CurrentPath;
+      const char * current_path; 
+      void writeFile(const char * message);
+      void appendFile(const char * message);
       Sensor* _sensor;
     public:
-      Log(Sensor* pSensor): _sensor(pSensor) {};
+      Log(Sensor* pSensor, const char * Path);
       void initSD();
       void logSD();
-      void readFile(const char * path);
+      void readFile();
       void listDir(const char * dirname, uint8_t levels);
 };

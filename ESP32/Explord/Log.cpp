@@ -1,5 +1,11 @@
 #include "Log.h"
 
+Log::Log(Sensor* pSensor, const char * Path): _sensor(pSensor), current_path(Path) {
+//Log::Log(Sensor* pSensor, String Path): _sensor(pSensor) {
+  Serial.println("Inside the Log class init :");
+  Serial.println(current_path);
+  }
+
 void Log::initSD() {
   // Initialize SD card
   SPI.begin(PIN_CLK,PIN_MISO,PIN_MOSI,PIN_CS); 
@@ -14,11 +20,13 @@ void Log::initSD() {
   }
   // If the file doesn't exist
   // Create a file on the SD card and write the data labels
-  File file = SD.open("/Explord.csv");
+  Serial.println("Inside the Log class after init :");
+  Serial.println(current_path);
+  File file = SD.open(current_path);
   if(!file) {
     Serial.println("File doesn't exist");
     Serial.println("Creating file...");
-    writeFile("/Explord.csv", _sensor->printHeader().c_str());
+    writeFile(_sensor->printHeader().c_str());
   }
   else {
     Serial.println("File already exists");  
@@ -29,14 +37,14 @@ void Log::initSD() {
 void Log::logSD() {
   Serial.print("Save data: ");
   Serial.println(_sensor->printStringData());
-  appendFile("/Explord.csv", _sensor->printStringData().c_str()); 
+  appendFile(_sensor->printStringData().c_str()); 
 }
 
 // Write to the SD card (DON'T MODIFY THIS FUNCTION)
-void Log::writeFile(const char * path, const char * message) {
-  Serial.printf("Writing file: %s\n", path);
+void Log::writeFile(const char * message) {
+  Serial.printf("Writing file: %s\n", current_path);
 
-  File file = SD.open(path, FILE_WRITE);
+  File file = SD.open(current_path, FILE_WRITE);
   if(!file) {
     Serial.println("Failed to open file for writing");
     return;
@@ -50,10 +58,10 @@ void Log::writeFile(const char * path, const char * message) {
 }
 
 // Append data to the SD card (DON'T MODIFY THIS FUNCTION)
-void Log::appendFile(const char * path, const char * message) {
-  Serial.printf("Appending to file: %s\n", path);
+void Log::appendFile(const char * message) {
+  Serial.printf("Appending to file: %s\n", current_path);
 
-  File file = SD.open(path, FILE_APPEND);
+  File file = SD.open(current_path, FILE_APPEND);
   if(!file) {
     Serial.println("Failed to open file for appending");
     return;
@@ -66,10 +74,10 @@ void Log::appendFile(const char * path, const char * message) {
   file.close();
 }
 
-void Log::readFile(const char * path){
-    Serial.printf("Reading file: %s\n", path);
+void Log::readFile(){
+    Serial.printf("Reading file: %s\n", current_path);
 
-    File file = SD.open(path);
+    File file = SD.open(current_path);
     if(!file){
         Serial.println("Failed to open file for reading");
         return;
