@@ -52,8 +52,8 @@
                 nb_bit: "Int16"
             },
             "2a7a" : {
-                name : "Chaleur",
-                short : "heat",
+                name : "Indice de chaleur",
+                short : "heat_index",
                 unit: "°C",
                 min: 0,
                 max: 65,
@@ -61,7 +61,7 @@
             },
             "2a6f" : {
                 name : "Humidité",
-                short : "humidite",
+                short : "humidity",
                 unit: "%",
                 min: 0,
                 max: 100,
@@ -69,42 +69,42 @@
             },
             "486a" : {
                 name : "Dioxygène",
-                short : "o2",
+                short : "o2_rate",
                 unit: "%",
                 min: 0,
                 max: 25,
                 nb_bit: "Uint16"
             },
             "486b" : {
-                name : "Pression partiel en O2",
+                name : "Pression partielle en O2",
                 short : "ppo2",
                 unit: "Pa",
                 min: 0,
-                max: 1000000,
+                max: 1100000,
                 nb_bit: "Uint32"
             },
             "2a6d" : {
                 name : "Pression",
-                short : "pression",
+                short : "pressure",
                 unit: "Pa",
                 min: 0,
-                max: 10000,
+                max: 1100000,
                 nb_bit: "Uint32"
             },
             "486c" : {
                 name : "Dioxyde de carbone",
-                short : "co2",
+                short : "co2_rate",
                 unit: "ppm",
                 min: 0,
-                max: 1000,
+                max: 50000,
                 nb_bit: "Uint16"
             },
             "2afb" : {
                 name : "Luminosité",
-                short : "lum",
+                short : "luminosity",
                 unit: "lux",
                 min: 0,
-                max: 100,
+                max: 50000,
                 nb_bit: "Uint16"
             },
         };
@@ -274,6 +274,9 @@
           else if (type == 'Int16')  {
               result = value.getInt16(0, /*littleEndian=*/true) /100;
           }
+          else if (type == 'Int32')  {
+              result = value.getInt32(0, /*littleEndian=*/true) /100;
+          }
           else if (type == 'Uint32')  {
               result = value.getUint32(0, /*littleEndian=*/true) /100;
           }
@@ -319,13 +322,22 @@
                     _characteristics[k]["short"]
                 ).join(',') + "\n";
             for(var i in _log_value[deviceId]['time']) {
-                csvContent += _log_value[deviceId]['time'][i]+',';
+                time = _log_value[deviceId]['time'][i];
+
+                csvContent += formatTime(time) +',';
                 csvContent += Object.keys(_devices[deviceId].current_value).map( k =>
                     _log_value[deviceId][k][i]
                 ).join(',')
                 csvContent += "\n";
             }
             return csvContent;
+        }
+
+        function formatTime(time) {
+          if (typeof(time) == "string") {
+            time = new Date(time);
+          }
+          return time.getHours() + ':' + time.getMinutes() + ':' + time.getSeconds();
         }
 
         function downloadCSV(args) {
