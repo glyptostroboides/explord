@@ -154,7 +154,7 @@ static State* pMultiConnectState;
 static State* pSerialState;
 static State* pBLEState;
 static State* pLogState;
-String CurrentLogFile="/explord.csv";
+char CurrentLogFile[20]="/explord_data.csv";
 
 class StateCallbacks: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
@@ -166,7 +166,7 @@ class StateCallbacks: public BLECharacteristicCallbacks {
       if (pCharacteristic == pLogState->pChar) {
         pLogState->switchState();
         if (pLogState->isOn()){
-        pLog = new Log(pSensor,"/test3.csv");
+        pLog = new Log(pSensor,CurrentLogFile);
         pLog->initSD();
         }
       }
@@ -232,10 +232,10 @@ void checkSerial() {
       pBLEState->switchState();
       break;
     case 'L' :
-      //if (incomingString.charAt(1)==' ') {CurrentLogFile=incomingString.substring(2);}
+      if (incomingString.charAt(1)==' ') {incomingString.substring(2).toCharArray(CurrentLogFile,20);}
       pLogState->switchState();
       if (pLogState->isOn()){
-         pLog = new Log(pSensor,"/test3.csv");
+         pLog = new Log(pSensor,CurrentLogFile);
          pLog->initSD();
         }
       break;
@@ -335,7 +335,7 @@ void setup() {
   if (pBLEState->isOn()) {setBLEServer();}  
   if (pSerialState->isOn()) {pSensor->printSerialHeader();}
   if (pLogState->isOn()) {
-    pLog = new Log(pSensor,"/test3.csv");
+    pLog = new Log(pSensor,CurrentLogFile);
     pLog->initSD();
   }
   delay(2000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
