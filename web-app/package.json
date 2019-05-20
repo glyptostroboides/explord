@@ -9,8 +9,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bootstrap": "^4.3.1",
     "chart.js": "^2.7.3",
     "chartjs-plugin-streaming": "^1.7.1",
-    "chartjs-plugin-zoom": "^0.6.6"
+    "chartjs-plugin-zoom": "^0.6.6",
+    "jquery": "^3.4.1",
+    "popper.js": "^1.15.0"
   }
 }
