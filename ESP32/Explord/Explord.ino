@@ -6,11 +6,16 @@
 /*
    This part is not specific to any sensor. BLE Server and Services that are used by all sensorts
 */
-/*
- * 
- */
+
 const String deviceName = "Explord-";
 const String deviceNumber = "01"; //added to the Sensor specific device name
+
+
+/*To change the mac adress when the sensor is changed in order to avoid a bug in the Web Bluetooth API because characteristic are changing
+ */
+#include "esp_system.h"
+ //Original esp ttgo t1 mac adress are of type : 80:7D:3A:E4:
+uint8_t mac_adress[8] = {0x80,0x7D,0x3A,0xE4,deviceNumber.toInt(),0x00};
 
 
 unsigned long LedTime=0;
@@ -22,7 +27,7 @@ const int LEDPin = 22;
 /*Define the pin for the Plug and Play feature of the module : définition des connecteurs qui servent à déterminer le capteur connecté au démarrage du module*/
 const int PlugPin1 = 16;
 const int PlugPin2 = 17;
-const int PlugPin3 = 18;
+const int PlugPin3 = 5;
 /*Select automatically the sensor used to init the sensor class
   Possible values are :
   1 : DHT_22 : humidity and temperature sensor
@@ -200,8 +205,11 @@ uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which
   pinMode(PlugPin2, INPUT);
   pinMode(PlugPin3, INPUT);
   int Pin1 = digitalRead(PlugPin1);
+  delay(10);
   int Pin2 = digitalRead(PlugPin2);
+  delay(10);
   int Pin3 = digitalRead(PlugPin3);
+  delay(10);
   uint8_t sensor_id = Pin1 + 2*Pin2 + 4*Pin3;
   digitalWrite(23,LOW);
   if (sensor_id==0) {Serial.println("No sensor connected");}
@@ -312,6 +320,9 @@ void setup() {
   
   uint8_t plugged_sensor = getPluggedSensor();
   switch(plugged_sensor) {
+    case 0:
+      Serial.println("No sensor detected");
+      break;
     case 1: 
       pSensor = new DHT();
       break;
@@ -332,7 +343,11 @@ void setup() {
   pSensor->init();
   pSensor->powerOn();
   
-  if (pBLEState->isOn()) {setBLEServer();}  
+  if (pBLEState->isOn()) {
+      mac_adress[7] = plugged_sensor;
+      esp_base_mac_addr_set(mac_adress);     
+      setBLEServer();
+      }  
   if (pSerialState->isOn()) {pSensor->printSerialHeader();}
   if (pLogState->isOn()) {
     pLog = new Log(pSensor,CurrentLogFile);
