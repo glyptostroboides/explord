@@ -122,6 +122,7 @@ void Sensor::powerOn() {
   */
   pinMode(PowerPin, OUTPUT);
   digitalWrite(PowerPin, HIGH); // power on the sensor
+  delay(20);
 }
 
 void Sensor::powerOff() {
@@ -167,5 +168,5 @@ void Sensor::initSerial() {
 }
 
 void Sensor::initWire() {
-  Wire.begin(19,21); // Not Working : need to modify the library call to Wire
+  Wire.begin(RXPin,TXPin); // Not Working : need to modify the library call to Wire
 }

@@ -2,20 +2,20 @@
   This program send environmental data through BLE with an ESP32.
   The UUID used are the one from the BLE GATT specifications : https://www.bluetooth.com/specifications/gatt
 */
-
+  
 /*
-   This part is not specific to any sensor. BLE Server and Services that are used by all sensorts
+   This part is not specific to any sensor. BLE Server and Services that are used by all sensors
 */
 
 const String deviceName = "Explord-";
-const String deviceNumber = "01"; //added to the Sensor specific device name
+const String deviceNumber = "02"; //added to the Sensor specific device name
 
 
 /*To change the mac adress when the sensor is changed in order to avoid a bug in the Web Bluetooth API because characteristic are changing
  */
 #include "esp_system.h"
  //Original esp ttgo t1 mac adress are of type : 80:7D:3A:E4:
-uint8_t mac_adress[8] = {0x80,0x7D,0x3A,0xE4,deviceNumber.toInt(),0x00};
+uint8_t mac_adress[8] = {0x80,0x7D,0x3A,0x00,deviceNumber.toInt(),0x00}; //the last part is changed by the esp32 bluetooth code so not used
 
 
 unsigned long LedTime=0;
@@ -25,9 +25,8 @@ bool LedOn=false;
 const int LEDPin = 22;
 
 /*Define the pin for the Plug and Play feature of the module : définition des connecteurs qui servent à déterminer le capteur connecté au démarrage du module*/
-const int PlugPin1 = 16;
-const int PlugPin2 = 17;
-const int PlugPin3 = 5;
+const int PowerPPPin = 21;//25 before
+//const int ReadPPPin = 21;
 /*Select automatically the sensor used to init the sensor class
   Possible values are :
   1 : DHT_22 : humidity and temperature sensor
@@ -195,7 +194,7 @@ class ServerCallbacks: public BLEServerCallbacks {
     }
 };
 
-
+/*Old version with 3 pins
 uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which are high : detection du capteur connecté en identifiant les connecteurs HIGH
   //For testing purpose in order to use this pin as power pin
   pinMode(23, OUTPUT);
@@ -214,6 +213,36 @@ uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which
   digitalWrite(23,LOW);
   if (sensor_id==0) {Serial.println("No sensor connected");}
   return sensor_id;
+}*/
+
+uint8_t getPluggedSensor() {
+  pinMode(PowerPPPin,OUTPUT);
+  digitalWrite(PowerPPPin, HIGH);
+  delay(10);
+  int raw;
+  raw = analogRead(A4);//A4 is for gpio32, ADC1 is used with channel 4
+  Serial.println(raw);
+  digitalWrite(PowerPPPin, LOW);
+  if (raw) {
+    if (raw>1000 && raw<1050) { // 12kOhm resistance for DHT
+      return 1;
+    }
+    else if (raw>1150 && raw<1200) { // 10kOhm resistance for LOX
+      return 2;
+    }
+    else if (raw>2580 && raw<2630) { // 2.35kOhm resistance for MHZ
+      return 3;
+    }
+    else if (raw>1890 && raw<1940) { // 4.7kOhm resistance for DS
+      return 4;
+    }
+    else if (raw>3610 && raw<3660) { // 560 Ohm resistance for TSL
+      return 5;
+    }
+    else { 
+      return 0;
+    }
+  }
 }
 
 void checkSerial() {
@@ -319,6 +348,7 @@ void setup() {
   Serial.begin(115200);
   
   uint8_t plugged_sensor = getPluggedSensor();
+  Serial.println(plugged_sensor);
   switch(plugged_sensor) {
     case 0:
       Serial.println("No sensor detected");
@@ -339,12 +369,11 @@ void setup() {
       pSensor = new TSL();
       break;
   }
-  
-  pSensor->init();
   pSensor->powerOn();
+  pSensor->init();
   
   if (pBLEState->isOn()) {
-      mac_adress[7] = plugged_sensor;
+      mac_adress[3] = plugged_sensor;
       esp_base_mac_addr_set(mac_adress);     
       setBLEServer();
       }  

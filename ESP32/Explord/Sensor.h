@@ -7,10 +7,10 @@ const int MaxCharacteristics = 4;
 
 class Sensor {
   protected:
-    const uint8_t PowerPin = 23;
+    const uint8_t PowerPin = 25;
     const uint8_t DataPin = 19;
     const uint8_t RXPin = 19;
-    const uint8_t TXPin = 21;
+    const uint8_t TXPin = 18;
     static Characteristic Temp,Humidity,Dew,Heat,O2,PPO2,Pressure,CO2,Illuminance;
     uint8_t Id;
     uint8_t CharNb;
