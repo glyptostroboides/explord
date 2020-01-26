@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
   <head>
     <!-- Required meta tags -->
     <meta charset="utf-8">
@@ -19,18 +19,15 @@
     <div class="container mt-2">
         <div id="error-message" class="p-3 mb-2 bg-danger text-white" style="display:none"></div>
         <div id="devices-container" class="bg-dark text-white">
-        </div
-
     </div>
+
     <script src="./node_modules/jquery/dist/jquery.slim.min.js"></script>
     <script src="./node_modules/popper.js/dist/umd/popper.min.js"></script>
     <script src="./node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
 
     <script src="./node_modules/moment/moment.js"></script>
     <script src="./node_modules/chart.js/dist/Chart.js"></script>
-    <script src="./node_modules/chartjs-plugin-zoom/chartjs-plugin-zoom.min.js"></script>
-    <script src="./node_modules/chartjs-plugin-streaming/dist/chartjs-plugin-streaming.min.js"></script>
-    <script>
+   <script>
 
         const _characteristics = {
             "2a6e" : {
@@ -161,7 +158,6 @@
         }
 
         function connectDevice(id, name) {
-
             let container = document.querySelector('#devices-container');
             let div = document.createElement('div');
             div.innerHTML = `
@@ -175,13 +171,17 @@
                         >
                             ${name}
                         </button>
-                        <!--<button class="btn btn-danger float-right" onclick="onDisconnectButtonClick(${id})">Se déconnecter</button>-->
+                          <button class="btn btn-danger float-right" onclick="onDisconnectButtonClick(${id})">Se déconnecter</button>
                         </h5>
                     </div>
 
                     <div id="collapse_device-${id}" class="collapse show" aria-labelledby="heading_device-${id}" data-parent="#accordion">
                         <div class="card-body">
                             <button id="log-data_${id}" class="btn btn-info" onclick="log_data(${id})">Enregistrer</button>
+
+                            Interval : <input id="delay_${id}" type="text" onchange="log_delay(${id})" value="1"></input>(s)
+
+                            Durée : <input id="duration_${id}" type="text" onchange="log_delay(${id})" value="30"></input>(s)
 
                             <a class="btn btn-success" href='#' onclick='downloadCSV({deviceId: ${id}, filename: "sensor-data.csv" });'>CSV</a>
 
@@ -201,11 +201,12 @@
             }
             if (bluetoothDevice.gatt.connected) {
                 bluetoothDevice.gatt.disconnect();
+                clearInterval(_interval_id);
                 document.querySelector('#device-'+id).remove();
                 Object.keys(_devices[id]["charts"]).forEach(function(key) {
                     _devices[id]["charts"][key].destroy();
                 });
-                // _devices[id] = [];
+                _devices.splice(id, id+1);
             } else {
                 console.log('> Bluetooth Device is already disconnected');
             }
@@ -257,9 +258,16 @@
 
             value = parseValue(event.target.value, _characteristics[carac_code].nb_bit);
 
-            document.querySelector(
+            const characValueContainer = document.querySelector(
               '#value_' + deviceId + '_' + _characteristics[carac_code].short
-            ).innerHTML = value;
+            )
+
+            // Display value
+            if (characValueContainer){
+              characValueContainer.innerHTML = value;
+            }
+
+            // Store value
             _devices[deviceId]["current_value"][carac_code] = value;
         }
 
@@ -282,10 +290,20 @@
         }
 
         //Logging
+        function log_delay(deviceId){
+            if (_log_state== true) {
+                clearInterval(_interval_id);
+                log_interval = parseInt(document.querySelector("#delay_"+deviceId).value);
+                _interval_id = setInterval(function() {storeValue(deviceId)}, log_interval*1000);
+            }
+        }
+
         function log_data(deviceId) {
             if (_log_state == false) {
-                _interval_id = setInterval(function() {storeValue(deviceId)}, log_interval);
                 _log_state = true;
+                // ---- Init graphs
+                log_delay(deviceId);
+
                 document.querySelector("#log-data_"+deviceId).innerHTML = "Stop";
                 document.querySelector("#log-data_"+deviceId).classList.remove("btn-info");
                 document.querySelector("#log-data_"+deviceId).classList.add("btn-warning");
@@ -311,6 +329,10 @@
                 }
             }
             _log_value[deviceId] = log;
+
+            // Refresh graph
+
+            refreshGraphValues(deviceId);
         }
 
         //CSV
@@ -353,84 +375,100 @@
 
             let carac = _characteristics[uuid];
 
-            var ctx = document.getElementById(
+            let ctx = document.getElementById(
                 `chart_${deviceId}_${carac.short}`
             ).getContext('2d');
-
-            var chart = new Chart(ctx,{
+            let chart = new Chart(ctx,{
                 type: 'line',
                 data: {
                     datasets: [{
-                        data: [],
-                        label:carac.name,
+                        label: carac.name,
                         backgroundColor: Chart.helpers.color('rgb(54, 162, 235)').alpha(0.5).rgbString(),
-                        borderColor: 'rgb(54, 162, 235)',
+                        // borderColor: 'rgb(54, 162, 235)',
                         fill: false,
-                        cubicInterpolationMode: 'monotone',
                     }]
                 },
                 options: {
                     scales: {
                         xAxes: [{
-                            type: 'realtime',
-                            realtime: {
-                                duration: 200000,
-                                refresh: 1000,
-                                delay: 1000,
-                                pause: false,
-                                ttl: undefined,
-                                onRefresh: function(chart) {
-                                    var data = onRefresh(deviceId);
-                                    Array.prototype.push.apply(
-                                        chart.data.datasets[0].data, data
-                                    );
-                                }
-                            }
-                        }],
-                        yAxes : [{
+                                    type: 'time',
+                                    time: {
+                                        unit: 'second',
+                                        displayFormats: {
+                                            second: 'h:mm:ss'
+                                        }
+                                    }
+                                }],
+                        yAxes: [{
                             ticks: {
-                                    min: carac.min,
-                                    max : carac.max
+                                min: carac.min,
+                                max: carac.max,
+                                beginAtZero: true
                             }
                         }]
-                    },
-                    zoom: {
-                        enabled: true,
-                        mode: 'x',
-                        rangeMax: {
-                            x: 500000
-                        },
-                        rangeMin: {
-                            x: 10000
-                        }
-                    },pan: {
-                        enabled: true,
-                        mode: 'x',
-                        rangeMax: {
-                            x: 50000
-                        },
-                        rangeMin: {
-                            x: 0
-                        }
-                    },
+                    }
                 }
             });
             _devices[deviceId]["charts"][uuid] = chart;
         }
 
-
-        function onRefresh(deviceId) {
+        function refreshGraphValues(deviceId) {
             let device = _devices[deviceId];
             let charts = device["charts"];
-            Object.keys(charts).forEach(key =>
-                charts[key].config.data.datasets.forEach(function(dataset) {
-                    dataset.data.push({
-                        x: Date.now(),
-                        y: _devices[deviceId]["current_value"][key]
-                    });
-                })
+            
+            if (charts == "undefined") return;
+
+            Object.keys(charts).forEach(characCode =>
+                refreshGraphCaracValues(deviceId, characCode)
             );
+
         }
+
+        function refreshGraphCaracValues(deviceId, characCode) {
+            let device = _devices[deviceId];
+
+            let charts = device["charts"][characCode];
+
+            charts.data.datasets.forEach(function(dataset) {
+                if (dataset.data.length == 0) {
+                    dataset.data = initGraphSeries(deviceId, _devices[deviceId]["current_value"][characCode]);
+                }
+                else {
+                    dataset.data.push({
+                        x: new Date(),
+                        y: _devices[deviceId]["current_value"][characCode]
+                    });
+                }
+            });
+            
+            // Si nb d'éléments trop important suppression
+            // des premières valeurs
+            x_nbel_max = 10;
+            charts.data.datasets.forEach((dataset) => {
+                if (dataset.data.length > x_nbel_max) {
+                    dataset.data.shift(0);
+                }
+            });
+
+            charts.update();
+        }
+
+        function initGraphSeries(deviceId, firstValue) {
+            // Générate label series
+            let delay = parseInt(document.querySelector("#delay_"+deviceId).value)
+            let durationOfSerie = parseInt(document.querySelector("#duration_"+deviceId).value);;
+                                    
+            let initlabels = [{x: new Date(), y: firstValue}]
+            for (let i = 1; i < durationOfSerie/delay; i++) {
+                const previousDate = initlabels[i-1].x;
+                const newDate = new Date(previousDate.setSeconds(previousDate.getSeconds() + delay ));
+                initlabels.push( {
+                    x: newDate
+                });
+            }
+            return initlabels; 
+        }
+        // Services worker
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.register('sw.js')
           .then(function(registration) {
