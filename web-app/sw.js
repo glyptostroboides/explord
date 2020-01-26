@@ -9,9 +9,7 @@ var urlsToCache = [
   "./node_modules/popper.js/dist/umd/popper.min.js",
   "./node_modules/bootstrap/dist/js/bootstrap.min.js",
   "./node_modules/moment/moment.js",
-  "./node_modules/chart.js/dist/Chart.js",
-  "./node_modules/chartjs-plugin-zoom/chartjs-plugin-zoom.min.js",
-  "./node_modules/chartjs-plugin-streaming/dist/chartjs-plugin-streaming.min.js"
+  "./node_modules/chart.js/dist/Chart.js"
 ];
 
 self.addEventListener('install', function(event) {
