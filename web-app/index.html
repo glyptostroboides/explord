@@ -27,6 +27,7 @@
 
     <script src="./node_modules/moment/moment.js"></script>
     <script src="./node_modules/chart.js/dist/Chart.js"></script>
+    
    <script>
 
         const _characteristics = {
@@ -104,9 +105,19 @@
             },
         };
 
+        const _characteristics_parameters = {
+            "00004861-1000-2000-3000-6578706c6f72" : {
+                name : "Delay",
+                short : "delay",
+                nb_bit: "Uint32"
+            }
+        }
 
+        const customServiceUuid = "00004860-1000-2000-3000-6578706c6f72";
+        
         let _devices = [];
         let _charts = {};
+        let _services = [];
 
         let _log_state = false;
         let _log_value = {};
@@ -117,7 +128,7 @@
           console.log("connecting ...");
           let deviceId;
           navigator.bluetooth.requestDevice(
-            { filters: [{ services: ['environmental_sensing'] }] }
+            { filters: [{ services: ['environmental_sensing', customServiceUuid] }] }
           ).then(
             device => {
                 _devices.push({"device" : device, "charts":{}, "current_value":{}});
@@ -125,28 +136,37 @@
                 connectDevice(deviceId, device.name)
                 return device.gatt.connect();
             }
-          ).then(
-            server => {document.querySelector('error-message')
-              return server.getPrimaryService('environmental_sensing');
-            }
-          ).then(
-            service => {
-                let queue = Promise.resolve();
-                queue = queue.then(
-                    _ => service.getCharacteristics().then(
-                        characteristics => {
-                            characteristics.forEach(characteristic => {
-                                console.log(characteristic.uuid);
-                                let uuid = characteristic.uuid.slice(4,8);
-                                if (_characteristics[uuid]) {
-                                    addCharacteristicContainer(uuid, deviceId);
-                                    getCharacteristicValue(characteristic, uuid, deviceId);
-                                }
-                        });
-                    })
-                );
-            }
-          ).catch(
+          ).then(server => {
+            // Note that we could also get all services that match a specific UUID by
+            // passing it to getPrimaryServices().
+            console.log('Getting Services...');
+            return server.getPrimaryServices();
+        }).then(services => {
+            console.log('Getting Characteristics...');
+            let queue = Promise.resolve();
+            services.forEach(service => {
+            queue = queue.then(_ => service.getCharacteristics().then(characteristics => {
+                console.log('> Service: ' + service.uuid);
+                characteristics.forEach(characteristic => {
+                    console.log(characteristic.uuid);
+                    let uuid = characteristic.uuid.slice(4,8);
+                    if (_characteristics[uuid]) {
+                        addCharacteristicContainer(uuid, deviceId);
+                        getCharacteristicValue(characteristic, uuid, deviceId);
+                    }
+                    else if (_characteristics_parameters[characteristic.uuid]) {
+                        if (_devices[deviceId]["parameters"] == undefined) {
+                            _devices[deviceId]["parameters"] = []; 
+                        }
+                        _devices[deviceId]["parameters"][characteristic.uuid] = characteristic;
+                        addCharacteristicParametersContainer(characteristic.uuid, deviceId);
+                        getCharacteristicParametersValue(characteristic, characteristic.uuid, deviceId);
+                    }
+                });
+            }));
+            });
+            return queue;
+        }).catch(
               error => {
                     console.log(error.message);
                     let errdiv = document.querySelector('#error-message')
@@ -172,25 +192,55 @@
                             ${name}
                         </button>
                           <button class="btn btn-danger float-right" onclick="onDisconnectButtonClick(${id})">Se déconnecter</button>
+                          
                         </h5>
+                    </div> 
+                    <div class="card-header" id="parameters_device-${id}">
+                        <div id="parameters_list_${id}"></div>
+                        <button class="btn btn-primary float-right" onclick="configureParameters(${id})">Configurer</button>
                     </div>
-
                     <div id="collapse_device-${id}" class="collapse show" aria-labelledby="heading_device-${id}" data-parent="#accordion">
                         <div class="card-body">
-                            <button id="log-data_${id}" class="btn btn-info" onclick="log_data(${id})">Enregistrer</button>
-
-                            Interval : <input id="delay_${id}" type="text" onchange="log_delay(${id})" value="1"></input>(s)
-
-                            Durée : <input id="duration_${id}" type="text" onchange="log_delay(${id})" value="30"></input>(s)
-
-                            <a class="btn btn-success" href='#' onclick='downloadCSV({deviceId: ${id}, filename: "sensor-data.csv" });'>CSV</a>
-
+                            <div class="form-inline">
+                                <div class="form-group m-2">
+                                    <label for="delay_${id}" class="m-2">Intervalle: </label>
+                                    <select id="delay_${id}" onchange="log_delay(${id})" class="form-control m-2">
+                                        <option value="1" default>1 s</option>
+                                        <option value="5">5 s</option>
+                                        <option value="10">10 s</option>
+                                        <option value="30">30 s</option>
+                                        <option value="60">60 s</option>
+                                    </select>
+                                    <div class="form-group m-2">
+                                        <button id="log-data_${id}" class="btn btn-info" onclick="log_data(${id})">Enregistrer</button>
+                                    </div>
+                                    <div class="form-group m-2">
+                                        <a class="btn btn-success" href='#' onclick='downloadCSV({deviceId: ${id}, filename: "sensor-data.csv" });'>Exporter</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-inline">
+                                <div class="form-group m-2">
+                                    <label for="graph_nb_val_${id}" class="m-2">Nombre de valeurs: </label>
+                                    <input id="graph_nb_val_${id}" type="text" class="form-control m-2" onchange="log_delay(${id})" value="100"></input>
+                                </div>
+                                <div class="form-group m-2">
+                                    <label for="graph_debut_${id}" class="m-2">Début: </label>
+                                    <input id="graph_debut_${id}" type="text" class="form-control m-2"></input>
+                                </div>
+                                <div class="form-group m-2">
+                                    <label for="graph_fin_${id}" class="m-2">Fin: </label>
+                                    <input id="graph_fin_${id}" type="text" class="form-control m-2"></input>
+                                </div>
+                                
+                            </div>
+                            </div>
                             <div id="value_list_${id}"></div>
                         </div>
                     </div>
                 </div>
             </div>
-            `;log_data
+            `;
             container.appendChild(div);
         }
 
@@ -246,7 +296,7 @@
                 characteristic => {
                 characteristic.addEventListener(
                     'characteristicvaluechanged',
-                    function (event) {handleCharacteristicValueChange(event, deviceId) }
+                    function (event) {handleCharacteristicValueChange(event, deviceId)}
                 );
                 return characteristic.readValue();
                 }
@@ -271,6 +321,40 @@
             _devices[deviceId]["current_value"][carac_code] = value;
         }
 
+        function handleCharacteristicParametersValueChange(event, deviceId) {
+            let carac_code = event.target.uuid;
+            value = parseValue(event.target.value, _characteristics[carac_code].nb_bit);
+            const characValueContainer = document.querySelector(
+              '#value_parameters_' + deviceId + '_' + _characteristics[carac_code].short
+            )
+            // Display value
+            if (characValueContainer){
+              characValueContainer.innerHTML = value;
+            }
+        }
+
+        function addCharacteristicParametersContainer(uuid, deviceId) {
+            let container = document.querySelector('#parameters_list_'+deviceId);
+            let div = document.createElement('div');
+            let id_carac = _characteristics_parameters[uuid].short;
+            div.className = "p-4";
+            div.innerHTML = "<div>" + _characteristics_parameters[uuid].name + " : <input type='text' id=value_parameters_" + deviceId + "_" + id_carac + "></input></div>";
+            container.appendChild(div);
+        }
+
+        function getCharacteristicParametersValue(characteristic, uuid, deviceId) {
+            return characteristic.startNotifications()
+            .then(
+                characteristic => {
+                characteristic.addEventListener(
+                    'characteristicvaluechanged',
+                    function (event) {handleCharacteristicParametersValueChange(event, deviceId) }
+                );
+                return characteristic.readValue();
+                }
+            ).catch(error => { console.log(error); });
+        }
+
         function parseValue(value, type) {
           value = value.buffer ? value : new DataView(value);
           let result;
@@ -287,6 +371,39 @@
               result = value.getUint32(0, /*littleEndian=*/true) /100;
           }
           return result;
+        }   
+
+        function formatValue(value, type) {
+          let result;
+          if (type == 'Uint8') {
+              result = Uint8Array.of(value, /*littleEndian=*/true);
+          }
+          else if (type == 'Uint32')  {
+              result = Uint32Array.of(value, /*littleEndian=*/true);
+          }
+          else if (type == 'Int16')  {
+              result = Int16Array.of(value, /*littleEndian=*/true);
+          }
+          else if (type == 'Int32')  {
+              result = Int32Array.of(value, /*littleEndian=*/true);
+          }
+          return result;
+        }   
+
+        function configureParameters(deviceId){
+            Object.entries(_devices[deviceId]["parameters"]).forEach(
+                ([uuid, charac]) => writeOnService(deviceId, uuid,charac)
+            );
+        }
+        function writeOnService(deviceId, uuid, characteristic) {
+            let delay = document.querySelector("#value_parameters_" + deviceId + "_" + _characteristics_parameters[uuid].short).value;
+            
+            var newDelay = formatValue(delay,_characteristics_parameters[uuid].nb_bit);
+            characteristic.writeValue(newDelay)
+            .then(_ => {
+                console.log('OK');
+            })
+            .catch(error => { console.log(error); })
         }
 
         //Logging
@@ -294,6 +411,7 @@
             if (_log_state== true) {
                 clearInterval(_interval_id);
                 log_interval = parseInt(document.querySelector("#delay_"+deviceId).value);
+                document.querySelector("#graph_debut_"+deviceId).value = formatTime(new Date());
                 _interval_id = setInterval(function() {storeValue(deviceId)}, log_interval*1000);
             }
         }
@@ -331,8 +449,9 @@
             _log_value[deviceId] = log;
 
             // Refresh graph
-
             refreshGraphValues(deviceId);
+
+            document.querySelector("#graph_fin_"+deviceId).value = formatTime(new Date());
         }
 
         //CSV
@@ -443,10 +562,11 @@
             
             // Si nb d'éléments trop important suppression
             // des premières valeurs
-            x_nbel_max = 10;
+            const durationOfSerie = parseInt(document.querySelector("#graph_nb_val_"+deviceId).value);
             charts.data.datasets.forEach((dataset) => {
-                if (dataset.data.length > x_nbel_max) {
-                    dataset.data.shift(0);
+                if (dataset.data.length > durationOfSerie) {
+                    let nb_to_del = dataset.data.length - durationOfSerie;
+                    dataset.data.splice(0, nb_to_del);
                 }
             });
 
@@ -455,8 +575,8 @@
 
         function initGraphSeries(deviceId, firstValue) {
             // Générate label series
-            let delay = parseInt(document.querySelector("#delay_"+deviceId).value)
-            let durationOfSerie = parseInt(document.querySelector("#duration_"+deviceId).value);;
+            let delay = parseInt(document.querySelector("#delay_"+deviceId).value);
+            let durationOfSerie = parseInt(document.querySelector("#graph_nb_val_"+deviceId).value);
                                     
             let initlabels = [{x: new Date(), y: firstValue}]
             for (let i = 1; i < durationOfSerie/delay; i++) {
