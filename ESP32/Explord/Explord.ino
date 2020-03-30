@@ -227,11 +227,10 @@ uint8_t getPluggedSensor() {
   raw = analogRead(A4);//A4 is for gpio32, ADC1 is used with channel 4
   Serial.println(raw);
   digitalWrite(PowerPPPin, LOW);
+  //Returned value with a varistor with 14 grade
   if (raw) {
-    if (raw>500 && raw<1000 ) { //varistor 7 middle for BME
-      return 6;
-    }
-    else if (raw>1000 && raw<1050) { // 12kOhm resistance for DHT
+    
+    /*if (raw>1000 && raw<1050) { // 12kOhm resistance for DHT
       return 1;
     }
     else if (raw>1150 && raw<1200) { // 10kOhm resistance for LOX
@@ -245,6 +244,33 @@ uint8_t getPluggedSensor() {
     }
     else if (raw>1950 && raw<2050) { // 560 Ohm resistance for TSL // changed to varistor 3
       return 5;
+    }
+    if (raw>500 && raw<1000 ) { //varistor 7 middle for BME
+      return 6;
+    }*/
+    //Values mesured with a 10kOhm resistor bridge
+    if (raw >4000) {
+      Serial.println("No sensor detected with this signature :");
+      Serial.println(raw);
+      return 0;
+    }
+    else if (raw>2800) { //DHT varistor 1
+      return 1;
+    }
+    else if (raw>2400) { //LOX varistor 2
+      return 2;
+    }
+    else if (raw>2100) { //MHZ varistor 3
+      return 3;
+    }
+    else if (raw>1900) { //DS varistor 4
+      return 4;
+    }
+    else if (raw>1700) { //TSL varistor 5
+      return 5;
+    }
+    else if (raw>1400) { //BME varistor 6
+      return 6;
     }
     else { 
       Serial.println("No sensor detected with this signature :");
