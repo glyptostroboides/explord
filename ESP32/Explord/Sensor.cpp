@@ -168,5 +168,7 @@ void Sensor::initSerial() {
 }
 
 void Sensor::initWire() {
-  Wire.begin(RXPin,TXPin); // Not Working : need to modify the library call to Wire
+  //Wire.begin(RXPin,TXPin); // Not Working : need to modify the library call to Wire
+  TwoWire I2C = TwoWire(0);
+  I2C.begin(RXPin, TXPin, 100000);
 }

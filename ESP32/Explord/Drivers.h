@@ -22,7 +22,9 @@ Inclusion de la bibliotheque HardWareSerial qui permet la gestion d autres ports
 #include <Wire.h>
 
 /* Library for the illuminance sensor */
-#include <SparkFunTSL2561.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_TSL2561_U.h>
+//#include <SparkFunTSL2561.h>
 
 #include "Sensor.h"
 
@@ -81,13 +83,12 @@ class DS : public Sensor {
 
 class TSL : public Sensor {
   protected:
-    SFE_TSL2561 light;
-    //boolean gain; // Gain setting, 0 = X1, 1 = X16;  
-    unsigned int ms; // Integration ("shutter") time in milliseconds
-    unsigned int data0,data1;
+    //TwoWire I2C = TwoWire(0);
+    TwoWire I2C;
+    Adafruit_TSL2561_Unified tsl; 
     double lux;
   public:
-    TSL() : Sensor("TSL",1,&Illuminance,NULL,NULL,NULL) {};
+    TSL(): I2C(0),tsl(TSL2561_ADDR_FLOAT, 12345),Sensor("TSL",1,&Illuminance,NULL,NULL,NULL) {};
     virtual void init();
     virtual bool readData();   
 };

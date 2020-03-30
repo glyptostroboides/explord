@@ -240,7 +240,7 @@ uint8_t getPluggedSensor() {
     else if (raw>1890 && raw<1940) { // 4.7kOhm resistance for DS
       return 4;
     }
-    else if (raw>3610 && raw<3660) { // 560 Ohm resistance for TSL
+  else if (raw>1950 && raw<2050) { // 560 Ohm resistance for TSL // changed to varistor 3
       return 5;
     }
     else { 

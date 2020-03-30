@@ -130,7 +130,32 @@ bool DS::readData(){
 /*
  * TSL2561 Specific code
  */
+void TSL::init(){
+  // Initialize the TSL2561 library
+  //I2CTSL = TwoWire(0);
+  //Adafruit_TSL2561_Unified tsl = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT, 12345);
+  //TwoWire I2C = TwoWire(0) ;// Not Working
+  I2C.begin(18, 19, 100000);
+  //initWire();
+  tsl.begin(&I2C);
+  tsl.enableAutoRange(true);            /* Auto-gain ... switches automatically between 1x and 16x */
+  tsl.setIntegrationTime(TSL2561_INTEGRATIONTIME_402MS);
+}
 
+bool TSL::readData(){
+  sensors_event_t event;
+  int16_t _Illuminance;
+  tsl.getEvent(&event);
+  if (event.light)
+  {
+    _Illuminance = event.light;
+    CharSet[0]->setValue((uint8_t*)&_Illuminance, 2);
+    CharSet[0]->setSValue(String(_Illuminance));
+  }
+  else return false;
+  return true;
+}
+/*
 void TSL::init(){
   // Initialize the SFE_TSL2561 library 
   //initWire();// Not Working
@@ -163,4 +188,4 @@ bool TSL::readData(){
     else{Serial.println(TSL::lux);}
   } 
   return true;
-}
+}*/
