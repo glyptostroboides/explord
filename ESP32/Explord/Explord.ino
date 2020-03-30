@@ -228,7 +228,10 @@ uint8_t getPluggedSensor() {
   Serial.println(raw);
   digitalWrite(PowerPPPin, LOW);
   if (raw) {
-    if (raw>1000 && raw<1050) { // 12kOhm resistance for DHT
+    if (raw>500 && raw<1000 ) { //varistor 7 middle for BME
+      return 6;
+    }
+    else if (raw>1000 && raw<1050) { // 12kOhm resistance for DHT
       return 1;
     }
     else if (raw>1150 && raw<1200) { // 10kOhm resistance for LOX
@@ -240,10 +243,12 @@ uint8_t getPluggedSensor() {
     else if (raw>1890 && raw<1940) { // 4.7kOhm resistance for DS
       return 4;
     }
-  else if (raw>1950 && raw<2050) { // 560 Ohm resistance for TSL // changed to varistor 3
+    else if (raw>1950 && raw<2050) { // 560 Ohm resistance for TSL // changed to varistor 3
       return 5;
     }
     else { 
+      Serial.println("No sensor detected with this signature :");
+      Serial.println(raw);
       return 0;
     }
   }
@@ -371,6 +376,9 @@ void setup() {
       break;
     case 5:
       pSensor = new TSL();
+      break;
+    case 6:
+      pSensor = new BME();
       break;
   }
   pSensor->powerOn();

@@ -17,14 +17,16 @@ Inclusion de la bibliotheque HardWareSerial qui permet la gestion d autres ports
 #include "DallasTemperature.h"
 
 /*
- * Wire the I2C library is needed for TSL2561 and BMP280
+ * Wire the I2C library is needed for TSL2561 and BME280
  */
 #include <Wire.h>
-
-/* Library for the illuminance sensor */
 #include <Adafruit_Sensor.h>
+
+/* Library for the illuminance sensor TSL2561 */
 #include <Adafruit_TSL2561_U.h>
-//#include <SparkFunTSL2561.h>
+
+/*Library for the humidity and pressure sensor BME280*/
+#include <Adafruit_BME280.h>
 
 #include "Sensor.h"
 
@@ -83,12 +85,20 @@ class DS : public Sensor {
 
 class TSL : public Sensor {
   protected:
-    //TwoWire I2C = TwoWire(0);
     TwoWire I2C;
     Adafruit_TSL2561_Unified tsl; 
-    double lux;
   public:
     TSL(): I2C(0),tsl(TSL2561_ADDR_FLOAT, 12345),Sensor("TSL",1,&Illuminance,NULL,NULL,NULL) {};
+    virtual void init();
+    virtual bool readData();   
+};
+
+class BME : public Sensor {
+  protected:
+    TwoWire I2C;
+    Adafruit_BME280 bme;
+  public:
+    BME(): I2C(0),Sensor("BME",3,&Temp,&Pressure,&Humidity,NULL) {};
     virtual void init();
     virtual bool readData();   
 };
