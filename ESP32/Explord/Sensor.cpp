@@ -122,7 +122,7 @@ void Sensor::powerOn() {
   */
   pinMode(PowerPin, OUTPUT);
   digitalWrite(PowerPin, HIGH); // power on the sensor
-  delay(20);
+  delay(30);
 }
 
 void Sensor::powerOff() {

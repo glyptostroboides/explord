@@ -144,8 +144,12 @@ class State {
       setBLEState(); 
       };
     void switchState(){
-      if (state) { setState(0);}
-      else { setState(1);}
+      if (state) { setState(0);
+     //   Serial.println(String(_Name + " is Off"));
+      }
+      else { setState(1);
+      //  Serial.println(String(_Name + " is On"));
+      }
       pChar->notify();
     };
     byte isOn() {
@@ -230,7 +234,7 @@ uint8_t getPluggedSensor() {
     else if (raw>1150 && raw<1200) { // 10kOhm resistance for LOX
       return 2;
     }
-    else if (raw>2580 && raw<2630) { // 2.35kOhm resistance for MHZ
+    else if (raw>2400 && raw<2630) { // 2.35kOhm resistance for MHZ
       return 3;
     }
     else if (raw>1890 && raw<1940) { // 4.7kOhm resistance for DS
@@ -300,7 +304,7 @@ void setBLEServer() {
 
   // Create a BLE characteristic to old the timespan between two readings : Creation d'une caractéristique contenant l'intervalle entre deux mesures : 4 octets
   pClientCallbacks = new ClientCallbacks();
-  pDelay = pCustomService->createCharacteristic(DelayUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE);
+  pDelay = pCustomService->createCharacteristic(DelayUUID,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY);
   pDelay->setCallbacks(pClientCallbacks);
   pDelay->setValue((uint8_t*)&readDelay,4);
 
