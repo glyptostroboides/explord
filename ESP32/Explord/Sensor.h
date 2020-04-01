@@ -2,15 +2,18 @@
 
 
 #include "Characteristic.h"
+#include "Configuration.h"
 
 const int MaxCharacteristics = 4;
 
 class Sensor {
   protected:
-    const uint8_t PowerPin = 25;
-    const uint8_t DataPin = 19;
-    const uint8_t RXPin = 19;
-    const uint8_t TXPin = 18;
+    const uint8_t PowerPin = ENPIN;
+    const uint8_t DataPin = DATA1PIN;
+    const uint8_t RXPin = DATA1PIN;
+    const uint8_t TXPin = DATA2PIN;
+    const uint8_t SDAPin = DATA1PIN;
+    const uint8_t SCLPin = DATA2PIN;
     static Characteristic Temp,Humidity,Dew,Heat,O2,PPO2,Pressure,CO2,Illuminance;
     uint8_t Id;
     uint8_t CharNb;

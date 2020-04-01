@@ -2,37 +2,24 @@
   This program send environmental data through BLE with an ESP32.
   The UUID used are the one from the BLE GATT specifications : https://www.bluetooth.com/specifications/gatt
 */
+#include "Configuration.h"
+#include "esp_system.h" //Used to modify mac adress of the device
   
 /*
    This part is not specific to any sensor. BLE Server and Services that are used by all sensors
 */
-
-const String deviceName = "Explord-";
-const String deviceNumber = "02"; //added to the Sensor specific device name
-
+const String deviceName = DEVICE_NAME;
+const String deviceNumber = DEVICE_NUMBER; //added to the Sensor specific device name
 
 /*To change the mac adress when the sensor is changed in order to avoid a bug in the Web Bluetooth API because characteristic are changing
  */
-#include "esp_system.h"
  //Original esp ttgo t1 mac adress are of type : 80:7D:3A:E4:
-uint8_t mac_adress[8] = {0x80,0x7D,0x3A,0x00,deviceNumber.toInt(),0x00}; //the last part is changed by the esp32 bluetooth code so not used
+uint8_t mac_adress[8] = MAC;
 
-
+/*Define the configuration for the built in led to blink*/
 unsigned long LedTime=0;
-unsigned long BlinkTime=30;
+unsigned long BlinkTime=BLINK_TIME;
 bool LedOn=false;
-/*Define the pin for builtin LEDPin : Definition de la broche pour la  intégrée 22 et non 21 comme l'indique le peu de documentation*/
-const int LEDPin = 22;
-
-/*Define the pin for the Plug and Play feature of the module : définition des connecteurs qui servent à déterminer le capteur connecté au démarrage du module*/
-const int PowerPPPin = 21;//25 before
-//const int ReadPPPin = 21;
-/*Select automatically the sensor used to init the sensor class
-  Possible values are :
-  1 : DHT_22 : humidity and temperature sensor
-  2 : LOX02 : dioxygen rate sensor (also temperature, pressure and O2 partial pressure)
-  3 : MHZ16 : carbon dioxyd rate sensor
-*/
 
 /*Define the module state stored in the EEPROM persistant memory: communication (Serial, BLE, ...)
  * Definition de l'état du module : communication et autres
@@ -44,6 +31,8 @@ const int EEPROM_SIZE = 64;
 #include "Log.h"
 
 Log* pLog;
+char CurrentLogFile[20]=DEFAULT_LOG_FILE;
+
  
 // Save reading number on RTC memory, used when the deep sleep is launched
 //RTC_DATA_ATTR int readingID = 0;
@@ -88,7 +77,7 @@ Sensor* pSensor;
 
 /*Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes*/
 unsigned long DelayTime = 0; // for the timer for the sensor readings inside the main loop
-uint32_t readDelay = 1;
+uint32_t readDelay = READ_DELAY;
 static BLECharacteristic* pDelay = NULL;
 
 /*
@@ -162,7 +151,6 @@ static State* pMultiConnectState;
 static State* pSerialState;
 static State* pBLEState;
 static State* pLogState;
-char CurrentLogFile[20]="/explord_data.csv";
 
 class StateCallbacks: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
@@ -199,14 +187,14 @@ class ServerCallbacks: public BLEServerCallbacks {
 };
 
 uint8_t getPluggedSensor() {
-  pinMode(PowerPPPin,OUTPUT);
-  digitalWrite(PowerPPPin, HIGH); //set high the pin to power the resistor bridge
+  pinMode(PPPOWERPIN,OUTPUT);
+  digitalWrite(PPPOWERPIN, HIGH); //set high the pin to power the resistor bridge
   delay(10);
   int raw;
   uint8_t plugged_sensor;
-  raw = analogRead(A4);//A4 is for gpio32, ADC1 is used with channel 4
+  raw = analogRead(PPDETECTPIN);//read the resistor bridge value through adc1
   Serial.println(raw);
-  digitalWrite(PowerPPPin, LOW);
+  digitalWrite(PPPOWERPIN, LOW);
   //Returned value with a varistor with 14 grade
   if (raw) {
     //Values mesured with a 10kOhm resistor bridge
@@ -231,7 +219,7 @@ uint8_t getPluggedSensor() {
       pSensor = new DS();
       plugged_sensor= 4;
     }
-    else if (raw>1700) { //TSL varistor 5
+    else if (raw>1750) { //TSL varistor 5
       pSensor = new TSL();
       plugged_sensor= 5;
     }
@@ -239,18 +227,20 @@ uint8_t getPluggedSensor() {
       pSensor = new BME();
       plugged_sensor= 6;
     }
-  mac_adress[3] = plugged_sensor; 
+  mac_adress[3] = plugged_sensor;
+  mac_adress[5] = deviceNumber.toInt();
+  //Determine the mac adress of the device depending on sensor connected and default device number
   }
 }
 
 void switchLed() {
   LedTime=millis();
   if(LedOn) {
-    digitalWrite(LEDPin, LOW);
+    digitalWrite(LEDPIN, LOW);
     LedOn=false;
   }
   else {
-    digitalWrite(LEDPin, HIGH);
+    digitalWrite(LEDPIN, HIGH);
     LedOn=true;
   }
 }
@@ -379,7 +369,7 @@ void doStates() {
 
 void setup() {
   /*Set the internal led as an output for blinking purpose*/
-  pinMode(LEDPin, OUTPUT);
+  pinMode(LEDPIN, OUTPUT);
   
   getStates();
 
@@ -392,7 +382,7 @@ void setup() {
    * Découverte du capteur connecté grace à la valeur de résistance signature
    */
 
-  uint8_t plugged_sensor = getPluggedSensor();
+  getPluggedSensor();
   pSensor->powerOn();
   pSensor->init();
 

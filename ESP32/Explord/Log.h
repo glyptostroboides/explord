@@ -5,10 +5,7 @@
 #include "SPI.h"
 #include "Sensor.h"
 
-#define PIN_MISO 2
-#define PIN_MOSI 15
-#define PIN_CLK 14
-#define PIN_CS 13
+#include "Configuration.h"
 
 class Log {
     private:

@@ -132,7 +132,7 @@ bool DS::readData(){
  */
 void TSL::init(){
   // Initialize the TSL2561 library
-  I2C.begin(TXPin, RXPin, 100000);
+  I2C.begin(SDAPin, SCLPin, 100000);
   //initWire(); //doesn't work yet
   tsl.begin(&I2C);
   tsl.enableAutoRange(true);            /* Auto-gain ... switches automatically between 1x and 16x */
@@ -159,7 +159,7 @@ bool TSL::readData(){
 
 void BME::init(){
   // Initialize the BME280 library
-  I2C.begin(TXPin, RXPin, 100000);
+  I2C.begin(SDAPin, SCLPin, 100000);
   //initWire(); //doesn't work yet
   bme.begin(0x76, &I2C);  
 }
