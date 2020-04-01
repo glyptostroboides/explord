@@ -2,9 +2,22 @@
   This program send environmental data through BLE with an ESP32.
   The UUID used are the one from the BLE GATT specifications : https://www.bluetooth.com/specifications/gatt
 */
-#include "Configuration.h"
+#include "Configuration.h" //Store all configuration details
+#include "Drivers.h"
+#include "Log.h"
+
+
 #include "esp_system.h" //Used to modify mac adress of the device
-  
+#include "EEPROM.h" //Used to 
+
+
+/* BLE for ESP32 default library on ESP32-arduino framework
+  / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+
 /*
    This part is not specific to any sensor. BLE Server and Services that are used by all sensors
 */
@@ -16,35 +29,33 @@ const String deviceNumber = DEVICE_NUMBER; //added to the Sensor specific device
  //Original esp ttgo t1 mac adress are of type : 80:7D:3A:E4:
 uint8_t mac_adress[8] = MAC;
 
-/*Define the configuration for the built in led to blink*/
-unsigned long LedTime=0;
-unsigned long BlinkTime=BLINK_TIME;
-bool LedOn=false;
-
 /*Define the module state stored in the EEPROM persistant memory: communication (Serial, BLE, ...)
  * Definition de l'état du module : communication et autres
  */
-#include "EEPROM.h"
 const int EEPROM_SIZE = 64;
 
-/*Define the logging capabilities to the SD Card*/
-#include "Log.h"
+/*Define the initial values of state of the device*/
+unsigned long BlinkTime=BLINK_TIME;//time of the led blin in ms
+bool LedOn=false; //led starts off
+char CurrentLogFile[20]=DEFAULT_LOG_FILE;//log file name
+uint32_t readDelay = READ_DELAY; //delay betweens read
 
-Log* pLog;
-char CurrentLogFile[20]=DEFAULT_LOG_FILE;
+/*Define the timer to store the time for the main loop*/
+unsigned long LedTime=0; //timer for the blinking led
+unsigned long DelayTime = 0; // timer for the sensor readings inside the main loop
+unsigned long ReadvertisingTime = 0; //timer for readvertising in BLE
 
+/*
+  Value to store the BLE server connection state
+  Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
+*/
+
+bool BLEConnected = false;
+bool oldBLEConnected = false;
  
 // Save reading number on RTC memory, used when the deep sleep is launched
 //RTC_DATA_ATTR int readingID = 0;
 
-/* BLE for ESP32 default library on ESP32-arduino framework
-  / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
-
-#include "Drivers.h"
 
 /*
  * Define the UUID for the BLE GATT environnmental sensing service used by all sensors
@@ -73,21 +84,15 @@ static BLEServer* pServer = NULL;
 static BLEAdvertising* pAdvertising = NULL;
 static BLEService* pEnvService = NULL;
 static BLEService* pCustomService = NULL;
+
+/*Define the instance pointer of the sensor, the log file, ...*/
 Sensor* pSensor;
+Log* pLog;
+
 
 /*Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes*/
-unsigned long DelayTime = 0; // for the timer for the sensor readings inside the main loop
-uint32_t readDelay = READ_DELAY;
 static BLECharacteristic* pDelay = NULL;
 
-/*
-  Value to store the BLE server connection state
-  Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
-*/
-
-unsigned long ReadvertisingTime = 0;
-bool BLEConnected = false;
-bool oldBLEConnected = false;
 
 
 /*

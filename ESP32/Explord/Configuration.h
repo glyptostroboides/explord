@@ -1,3 +1,5 @@
+#pragma once
+
 /*
  * Define the device settings : name, number, ...
  */
@@ -12,6 +14,7 @@
 #define MAC {0x80,0x7D,0x3A,0x00,0x00,0x00} //Initial mac adress : fourth and fifth bytes changed according to sensor plugged and to device number
 
 #define DEFAULT_LOG_FILE "/explord_data.csv" //Default log file name for the csv log
+
 /*
  * Define the pins for the ESP TTGO T1
  */
