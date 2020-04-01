@@ -198,85 +198,60 @@ class ServerCallbacks: public BLEServerCallbacks {
     }
 };
 
-/*Old version with 3 pins
-uint8_t getPluggedSensor() { // Get the sensor id by checking the code pin which are high : detection du capteur connecté en identifiant les connecteurs HIGH
-  //For testing purpose in order to use this pin as power pin
-  pinMode(23, OUTPUT);
-  digitalWrite(23, HIGH);
-  delay(10);
-  pinMode(PlugPin1, INPUT);
-  pinMode(PlugPin2, INPUT);
-  pinMode(PlugPin3, INPUT);
-  int Pin1 = digitalRead(PlugPin1);
-  delay(10);
-  int Pin2 = digitalRead(PlugPin2);
-  delay(10);
-  int Pin3 = digitalRead(PlugPin3);
-  delay(10);
-  uint8_t sensor_id = Pin1 + 2*Pin2 + 4*Pin3;
-  digitalWrite(23,LOW);
-  if (sensor_id==0) {Serial.println("No sensor connected");}
-  return sensor_id;
-}*/
-
 uint8_t getPluggedSensor() {
   pinMode(PowerPPPin,OUTPUT);
-  digitalWrite(PowerPPPin, HIGH);
+  digitalWrite(PowerPPPin, HIGH); //set high the pin to power the resistor bridge
   delay(10);
   int raw;
+  uint8_t plugged_sensor;
   raw = analogRead(A4);//A4 is for gpio32, ADC1 is used with channel 4
   Serial.println(raw);
   digitalWrite(PowerPPPin, LOW);
   //Returned value with a varistor with 14 grade
   if (raw) {
-    
-    /*if (raw>1000 && raw<1050) { // 12kOhm resistance for DHT
-      return 1;
-    }
-    else if (raw>1150 && raw<1200) { // 10kOhm resistance for LOX
-      return 2;
-    }
-    else if (raw>2400 && raw<2630) { // 2.35kOhm resistance for MHZ
-      return 3;
-    }
-    else if (raw>1890 && raw<1940) { // 4.7kOhm resistance for DS
-      return 4;
-    }
-    else if (raw>1950 && raw<2050) { // 560 Ohm resistance for TSL // changed to varistor 3
-      return 5;
-    }
-    if (raw>500 && raw<1000 ) { //varistor 7 middle for BME
-      return 6;
-    }*/
     //Values mesured with a 10kOhm resistor bridge
-    if (raw >4000) {
+    if (raw >4000 || raw<1400) {
       Serial.println("No sensor detected with this signature :");
       Serial.println(raw);
-      return 0;
+      plugged_sensor= 0;
     }
     else if (raw>2800) { //DHT varistor 1
-      return 1;
+      pSensor = new DHT();
+      plugged_sensor= 1;
     }
     else if (raw>2400) { //LOX varistor 2
-      return 2;
+      pSensor = new LOX();
+      plugged_sensor= 2;
     }
     else if (raw>2100) { //MHZ varistor 3
-      return 3;
+      pSensor = new MHZ();
+      plugged_sensor= 3;
     }
     else if (raw>1900) { //DS varistor 4
-      return 4;
+      pSensor = new DS();
+      plugged_sensor= 4;
     }
     else if (raw>1700) { //TSL varistor 5
-      return 5;
+      pSensor = new TSL();
+      plugged_sensor= 5;
     }
     else if (raw>1400) { //BME varistor 6
-      return 6;
+      pSensor = new BME();
+      plugged_sensor= 6;
     }
-    else { 
-      Serial.println("No sensor detected with this signature :");
-      Serial.println(raw);
-      return 0;
-    }
+  mac_adress[3] = plugged_sensor; 
+  }
+}
+
+void switchLed() {
+  LedTime=millis();
+  if(LedOn) {
+    digitalWrite(LEDPin, LOW);
+    LedOn=false;
+  }
+  else {
+    digitalWrite(LEDPin, HIGH);
+    LedOn=true;
   }
 }
 
@@ -364,11 +339,11 @@ void setBLEServer() {
   pAdvertising->start();
 }
 
-void setup() {
-  /*Set the internal led as an output for blinking purpose*/
-  pinMode(LEDPin, OUTPUT);
-  /*Start the EEPROM memory management and get the module persistant state values*/
+void getStates() {
+   /*Start the EEPROM memory management and get the module persistant state values*/
   EEPROM.begin(EEPROM_SIZE);
+
+  /*Init the state of the device according to EEPROM values*/
   
   pStateCallbacks = new StateCallbacks();
   
@@ -376,50 +351,56 @@ void setup() {
   pSerialState = new State(1,SerialStateUUID,"Serial");
   pBLEState = new State(2,BLEStateUUID,"BLE");
   pLogState = new State(3,LogStateUUID,"Log");
+}
+
+void initStates() {
+  /* Init the services according to the states of the device
+   * Démarrage des services conformément aux valeurs d'états du module
+   */
+  if (pBLEState->isOn()) {
+      esp_base_mac_addr_set(mac_adress);     
+      setBLEServer();
+      }  
+      
+  if (pSerialState->isOn()) {pSensor->printSerialHeader();}
   
+  if (pLogState->isOn()) {
+      pLog = new Log(pSensor,CurrentLogFile);
+      pLog->initSD();
+      }
+}
+
+void doStates() {
+  if (pSerialState->isOn()){pSensor->printSerialData();} // if Serial is on : print data to serial USB
+  if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected
+  if (pLogState->isOn()) {pLog->logSD();} // if Log on log to the current log file
+}
+
+
+void setup() {
+  /*Set the internal led as an output for blinking purpose*/
+  pinMode(LEDPin, OUTPUT);
+  
+  getStates();
+
   /* Init the serial connection through USB
      Demarrage de la connection serie a travers le port USB
   */
   Serial.begin(115200);
-  
+
+  /* Get the plugged sensor through the value of the signature resistor
+   * Découverte du capteur connecté grace à la valeur de résistance signature
+   */
+
   uint8_t plugged_sensor = getPluggedSensor();
-  Serial.println(plugged_sensor);
-  switch(plugged_sensor) {
-    case 0:
-      Serial.println("No sensor detected");
-      break;
-    case 1: 
-      pSensor = new DHT();
-      break;
-    case 2:
-      pSensor = new LOX();
-      break;
-    case 3:
-      pSensor = new MHZ();
-      break;
-    case 4:
-      pSensor = new DS();
-      break;
-    case 5:
-      pSensor = new TSL();
-      break;
-    case 6:
-      pSensor = new BME();
-      break;
-  }
   pSensor->powerOn();
   pSensor->init();
+
+  /* Init the services according to the states of the device
+   * Démarrage des services conformément aux valeurs d'états du module
+   */
+  initStates();
   
-  if (pBLEState->isOn()) {
-      mac_adress[3] = plugged_sensor;
-      esp_base_mac_addr_set(mac_adress);     
-      setBLEServer();
-      }  
-  if (pSerialState->isOn()) {pSensor->printSerialHeader();}
-  if (pLogState->isOn()) {
-    pLog = new Log(pSensor,CurrentLogFile);
-    pLog->initSD();
-  }
   delay(2000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
 }
 
@@ -429,23 +410,14 @@ void loop() {
    */
   if(millis() > DelayTime + (readDelay*1000)) {
     DelayTime=millis();
-    if (pSensor->readData()) { //true if new datas are collected by DHT sensor : vrai si des nouvelles données envoyées par le DHT sont disponibles
-      if(pSerialState->isOn()){pSensor->printSerialData();}  
-      if (BLEConnected) { // if a BLE device is connected : si un peripherique BLE est connecté
-        pSensor->setBLEData();
-      }
-      if (pLogState->isOn()) {pLog->logSD();}
-      digitalWrite(LEDPin, HIGH);
-      LedTime=millis();
-      LedOn=true;
+    if (pSensor->readData()) { //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles
+      doStates(); // Deal with the datas according to state config : BLE, Serial, SD, ...
+      switchLed(); //Turn the led on after last reading
     }
   }
-  /*Turn of the led lighted on after last reading*/
-  if(LedOn and (millis() > LedTime + BlinkTime)) {
-    LedTime=millis();
-    digitalWrite(LEDPin, LOW);
-    LedOn=false;
-  }
+  /*Turn off the led lighted on after last reading*/
+  if(LedOn and (millis() > LedTime + BlinkTime)) { switchLed();}
+  
   /*
    * BLE Connecting and Disconnecting stuff
    */
@@ -458,10 +430,10 @@ void loop() {
   }
   // connecting
   if (BLEConnected && !oldBLEConnected) { oldBLEConnected = BLEConnected; }// Connection to a BLE client done : connection à un client BLE effectuée
+  
   /*
    * Serial stuff to read the incoming settings and order through USB Serial port
    */
-  if (Serial.available()) {
-    checkSerial();
-  }
+  if (Serial.available()) {checkSerial();}
+  
 }

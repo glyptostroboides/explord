@@ -93,6 +93,10 @@ class TSL : public Sensor {
     virtual bool readData();   
 };
 
+/*
+ * BME280 Sensor : temperature, pressure and humidity sensor (give also a sea level elevation)
+ */
+
 class BME : public Sensor {
   protected:
     TwoWire I2C;
