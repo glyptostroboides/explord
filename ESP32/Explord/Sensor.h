@@ -31,8 +31,8 @@ class Sensor {
     virtual bool readData()=0;
     void configBLEService(BLEService* pService);
     String printHeader();
-    String printStringData();
+    String printStringData(unsigned long * logTime);
     void printSerialHeader();
-    void printSerialData();
+    void printSerialData(unsigned long * logTime);
     void setBLEData();
 };

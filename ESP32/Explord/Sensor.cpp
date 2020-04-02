@@ -145,12 +145,13 @@ void Sensor::printSerialHeader() {
   Serial.println(printHeader());
 }
 
-void Sensor::printSerialData() {
-  Serial.println(printStringData());
+void Sensor::printSerialData(unsigned long * logTime) {
+  Serial.println(printStringData(logTime));
 }
 
-String Sensor::printStringData() {
-  String Data = CharSet[0]->getSValue();
+String Sensor::printStringData(unsigned long * logTime) {
+  String l_time = String(*logTime);
+  String Data = String (l_time + ","+ CharSet[0]->getSValue());
   for (int n = 1; n < CharNb; n++) {Data.concat(String("," + CharSet[n]->getSValue()));}
   return Data;
 }

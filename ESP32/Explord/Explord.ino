@@ -37,13 +37,14 @@ const int EEPROM_SIZE = 64;
 /*Define the initial values of state of the device*/
 unsigned long BlinkTime=BLINK_TIME;//time of the led blink in ms
 bool LedOn=false; //led starts off
-RTC_DATA_ATTR char CurrentLogFile[20]=DEFAULT_LOG_FILE;//log file name
+RTC_DATA_ATTR char CurrentLogFile[20]=DEFAULT_LOG_FILE;//log file name, saved for deep sleep
 RTC_DATA_ATTR uint32_t readDelay = READ_DELAY; //Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes
 
 /*Define the timer to store the time for the main loop*/
 unsigned long LedTime=0; //timer for the blinking led
 unsigned long DelayTime = 0; // timer for the sensor readings inside the main loop
 unsigned long ReadvertisingTime = 0; //timer for readvertising in BLE
+RTC_DATA_ATTR unsigned long logTime =0; //Store the time between the begin of log to save or display it : temps depuis le début de l'acquisition à afficher ou à transmettre
 
 /*
   Value to store the BLE server connection state
@@ -163,10 +164,7 @@ class StateCallbacks: public BLECharacteristicCallbacks {
       if (pCharacteristic == pSerialState->pChar) {pSerialState->switchState();}
       if (pCharacteristic == pLogState->pChar) {
         pLogState->switchState();
-        if (pLogState->isOn()){
-          pLog = new Log(pSensor,CurrentLogFile);
-          pLog->initSD();
-          }  
+        if (pLogState->isOn()){ startLog(); }  
         }
       if (pCharacteristic == pEcoState->pChar) {pEcoState->switchState();}
     } 
@@ -248,6 +246,12 @@ void switchLed() {
   }
 }
 
+void startLog() {
+  logTime=0;
+  pLog = new Log(pSensor,CurrentLogFile);
+  pLog->initSD();
+}
+
 void checkSerial() {
   String incomingString = Serial.readStringUntil('\r');
   char incomingOrder = incomingString.charAt(0);
@@ -278,8 +282,7 @@ void checkSerial() {
       if (incomingString.charAt(1)==' ') {incomingString.substring(2).toCharArray(CurrentLogFile,20);}
       pLogState->switchState();
       if (pLogState->isOn()){
-         pLog = new Log(pSensor,CurrentLogFile);
-         pLog->initSD();
+         startLog();
         }
       break;
     case 'R' :
@@ -403,9 +406,10 @@ void initStates() {
 }
 
 void doStates() {
-  if (pSerialState->isOn()){pSensor->printSerialData();} // if Serial is on : print data to serial USB
+  if (pSerialState->isOn()){pSensor->printSerialData(&logTime);} // if Serial is on : print data to serial USB
   if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected
-  if (pLogState->isOn()) {pLog->logSD();} // if Log on log to the current log file
+  if (pLogState->isOn()) {pLog->logSD(&logTime);} // if Log on log to the current log file
+  logTime+=readDelay; //add the delay to total log time for the next read
   if (pEcoState->isOn()) {doSleep();}
 }
 

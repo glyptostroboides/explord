@@ -34,10 +34,10 @@ void Log::initSD() {
   file.close();
 }
 
-void Log::logSD() {
+void Log::logSD(unsigned long * logTime) {
   Serial.print("Save data: ");
-  Serial.println(_sensor->printStringData());
-  appendFile(_sensor->printStringData().c_str()); 
+  Serial.println(_sensor->printStringData(logTime));
+  appendFile(_sensor->printStringData(logTime).c_str()); 
 }
 
 // Write to the SD card (DON'T MODIFY THIS FUNCTION)

@@ -17,7 +17,7 @@ class Log {
     public:
       Log(Sensor* pSensor, char * Path);
       void initSD();
-      void logSD();
+      void logSD(unsigned long * logTime);
       void readFile();
       void listDir(const char * dirname, uint8_t levels);
 };
