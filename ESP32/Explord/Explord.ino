@@ -8,7 +8,7 @@
 
 
 #include "esp_system.h" //Used to modify mac adress of the device
-#include "EEPROM.h" //Used to 
+#include "EEPROM.h" //Used to store device state configurations inside a persistant memory
 
 
 /* BLE for ESP32 default library on ESP32-arduino framework
@@ -35,10 +35,10 @@ uint8_t mac_adress[8] = MAC;
 const int EEPROM_SIZE = 64;
 
 /*Define the initial values of state of the device*/
-unsigned long BlinkTime=BLINK_TIME;//time of the led blin in ms
+unsigned long BlinkTime=BLINK_TIME;//time of the led blink in ms
 bool LedOn=false; //led starts off
-char CurrentLogFile[20]=DEFAULT_LOG_FILE;//log file name
-uint32_t readDelay = READ_DELAY; //delay betweens read
+RTC_DATA_ATTR char CurrentLogFile[20]=DEFAULT_LOG_FILE;//log file name
+RTC_DATA_ATTR uint32_t readDelay = READ_DELAY; //Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes
 
 /*Define the timer to store the time for the main loop*/
 unsigned long LedTime=0; //timer for the blinking led
@@ -53,10 +53,6 @@ unsigned long ReadvertisingTime = 0; //timer for readvertising in BLE
 bool BLEConnected = false;
 bool oldBLEConnected = false;
  
-// Save reading number on RTC memory, used when the deep sleep is launched
-//RTC_DATA_ATTR int readingID = 0;
-
-
 /*
  * Define the UUID for the BLE GATT environnmental sensing service used by all sensors
  * Definition de l'identifiant unique pour le service des capteurs environnementaux
@@ -75,7 +71,7 @@ const BLEUUID MultiConnectStateUUID = BLEUUID("00004870-1000-2000-3000-6578706c6
 const BLEUUID SerialStateUUID = BLEUUID("00004871-1000-2000-3000-6578706c6f72");
 const BLEUUID LogStateUUID = BLEUUID("00004872-1000-2000-3000-6578706c6f72");
 const BLEUUID BLEStateUUID = BLEUUID("00004873-1000-2000-3000-6578706c6f72");
-
+const BLEUUID EcoStateUUID = BLEUUID("00004874-1000-2000-3000-6578706c6f72");
 /*
   BLE Server, Environnmental Sensing Service and Custon Service pointers and for the Sensor singleton
   Declaration des pointeurs pour le serveur BLE, le service des données environnementales, le service BLE personnel et le singleton de la classe Sensor
@@ -137,14 +133,14 @@ class State {
       pChar=pCustomService->createCharacteristic(uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
       setBLEState(); 
       };
-    void switchState(){
+    void switchState(bool muteBLE=false){
       if (state) { setState(0);
-     //   Serial.println(String(_Name + " is Off"));
+        Serial.println(String(_Name + " is Off"));
       }
       else { setState(1);
-      //  Serial.println(String(_Name + " is On"));
+        Serial.println(String(_Name + " is On"));
       }
-      pChar->notify();
+      if(!muteBLE) {pChar->notify();}
     };
     byte isOn() {
       if (_adress) {state = (byte) EEPROM.read(_adress);}
@@ -156,6 +152,7 @@ static State* pMultiConnectState;
 static State* pSerialState;
 static State* pBLEState;
 static State* pLogState;
+static State* pEcoState;
 
 class StateCallbacks: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
@@ -167,10 +164,11 @@ class StateCallbacks: public BLECharacteristicCallbacks {
       if (pCharacteristic == pLogState->pChar) {
         pLogState->switchState();
         if (pLogState->isOn()){
-        pLog = new Log(pSensor,CurrentLogFile);
-        pLog->initSD();
+          pLog = new Log(pSensor,CurrentLogFile);
+          pLog->initSD();
+          }  
         }
-      }
+      if (pCharacteristic == pEcoState->pChar) {pEcoState->switchState();}
     } 
 };
 
@@ -224,7 +222,7 @@ uint8_t getPluggedSensor() {
       pSensor = new DS();
       plugged_sensor= 4;
     }
-    else if (raw>1750) { //TSL varistor 5
+    else if (raw>1780) { //TSL varistor 5
       pSensor = new TSL();
       plugged_sensor= 5;
     }
@@ -271,7 +269,10 @@ void checkSerial() {
       pSerialState->switchState();
       break;
     case 'B' :
-      pBLEState->switchState();
+      pBLEState->switchState(true);
+      break;
+    case 'E' :
+      pEcoState->switchState(true);
       break;
     case 'L' :
       if (incomingString.charAt(1)==' ') {incomingString.substring(2).toCharArray(CurrentLogFile,20);}
@@ -322,6 +323,10 @@ void setBLEServer() {
   pLogState->initBLEState();
   pLogState->pChar->setCallbacks(pStateCallbacks);
 
+  // Create a BLE characteristic to enable the eco mode that turn off the device and sensor between readings
+  pEcoState->initBLEState();
+  pEcoState->pChar->setCallbacks(pStateCallbacks);
+
   // Start the services : Demarrage des services sur les données environnementales et du service personnalisé
   pEnvService->start();
   pCustomService->start();
@@ -346,29 +351,80 @@ void getStates() {
   pSerialState = new State(1,SerialStateUUID,"Serial");
   pBLEState = new State(2,BLEStateUUID,"BLE");
   pLogState = new State(3,LogStateUUID,"Log");
+  pEcoState = new State(4,EcoStateUUID,"Eco");
 }
+
+bool isTimerWakeUp() {
+  /* Get the wake up reason, to detect timer wake up of user wake up (switch off and on)
+   * Détermination du mode de réveil : minuteur programmé ou bouton marche arrêt
+   */
+  esp_sleep_wakeup_cause_t wakeup_reason;
+  wakeup_reason = esp_sleep_get_wakeup_cause();
+  switch(wakeup_reason) {
+    case ESP_SLEEP_WAKEUP_TIMER : 
+      Serial.println("Wakeup caused by timer"); 
+      return true;
+    default : 
+      Serial.println("Wakeup was not caused by timer"); 
+      return false;
+    }
+  }
 
 void initStates() {
   /* Init the services according to the states of the device
    * Démarrage des services conformément aux valeurs d'états du module
    */
+  if (pLogState->isOn()) {
+      pLog = new Log(pSensor,CurrentLogFile);
+      pLog->initSD();
+      }
+  if (pEcoState->isOn()) {
+      if(!isTimerWakeUp()) {
+        pEcoState->switchState(true);
+        }
+      else {doReadAndSleep();}
+      }
   if (pBLEState->isOn()) {
       esp_base_mac_addr_set(mac_adress);     
       setBLEServer();
       }  
       
   if (pSerialState->isOn()) {pSensor->printSerialHeader();}
-  
-  if (pLogState->isOn()) {
+/*  if (pLogState->isOn()) {
       pLog = new Log(pSensor,CurrentLogFile);
       pLog->initSD();
       }
+  if (pEcoState->isOn()) {
+      if(!isTimerWakeUp()) {
+        pEcoState->switchState(true);
+        }
+      else {doReadAndSleep();}
+      }*/
 }
 
 void doStates() {
   if (pSerialState->isOn()){pSensor->printSerialData();} // if Serial is on : print data to serial USB
   if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected
   if (pLogState->isOn()) {pLog->logSD();} // if Log on log to the current log file
+  if (pEcoState->isOn()) {doSleep();}
+}
+
+void doReadAndSleep() {
+  //delay(1000);
+  pSensor->readData(); //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles    if (Serial.available()) {checkSerial();}
+  doStates();  //launch doSleep() when EcoState is On : can be refined
+  doSleep();
+}
+
+void doSleep() {
+  pSensor->powerOff();
+  unsigned long TimerDelay = (readDelay *1000000);
+  if (TimerDelay > micros()) {TimerDelay-=micros();}
+  esp_sleep_enable_timer_wakeup(TimerDelay);
+  Serial.println("Going to sleep now for : ");
+  Serial.println(TimerDelay);
+  Serial.flush(); 
+  esp_deep_sleep_start();
 }
 
 
@@ -386,7 +442,6 @@ void setup() {
   /* Get the plugged sensor through the value of the signature resistor
    * Découverte du capteur connecté grace à la valeur de résistance signature
    */
-
   getPluggedSensor();
   pSensor->powerOn();
   pSensor->init();
@@ -395,8 +450,9 @@ void setup() {
    * Démarrage des services conformément aux valeurs d'états du module
    */
   initStates();
-  
-  delay(2000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
+
+  //delay(1000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
+  DelayTime=millis();
 }
 
 void loop() {

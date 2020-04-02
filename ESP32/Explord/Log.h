@@ -10,12 +10,12 @@
 class Log {
     private:
       //String CurrentPath;
-      const char * current_path; 
+      char * current_path; 
       void writeFile(const char * message);
       void appendFile(const char * message);
       Sensor* _sensor;
     public:
-      Log(Sensor* pSensor, const char * Path);
+      Log(Sensor* pSensor, char * Path);
       void initSD();
       void logSD();
       void readFile();
