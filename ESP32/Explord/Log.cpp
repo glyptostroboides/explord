@@ -1,10 +1,6 @@
 #include "Log.h"
 
-Log::Log(Sensor* pSensor, char * Path): _sensor(pSensor), current_path(Path) {
-//Log::Log(Sensor* pSensor, String Path): _sensor(pSensor) {
-  //Serial.println("Inside the Log class init :");
-  //Serial.println(current_path);
-  }
+Log::Log(Sensor* pSensor, char * Path): _sensor(pSensor), current_path(Path) { }
 
 void Log::initSD() {
   // Initialize SD card
@@ -20,12 +16,9 @@ void Log::initSD() {
   }
   // If the file doesn't exist
   // Create a file on the SD card and write the data labels
-  //Serial.println("Inside the Log class after init :");
-  //Serial.println(current_path);
   File file = SD.open(current_path);
   if(!file) {
-    Serial.println("File doesn't exist");
-    Serial.println("Creating file...");
+    Serial.println("File doesn't exist. Creating file...");
     writeFile(_sensor->printHeader().c_str());
   }
   else {
@@ -36,7 +29,7 @@ void Log::initSD() {
 
 void Log::logSD(unsigned long * logTime) {
   Serial.print("Save data: ");
-  Serial.println(_sensor->printStringData(logTime));
+  Serial.print(_sensor->printStringData(logTime));
   appendFile(_sensor->printStringData(logTime).c_str()); 
 }
 

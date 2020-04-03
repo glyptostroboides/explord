@@ -279,7 +279,15 @@ void checkSerial() {
       pEcoState->switchState(true);
       break;
     case 'L' :
-      if (incomingString.charAt(1)==' ') {incomingString.substring(2).toCharArray(CurrentLogFile,20);}
+      if (incomingString.charAt(1)==' ') {
+        if (incomingString.charAt(2)=='/'){
+          incomingString= incomingString.substring(2) + ".csv";
+          }
+        else {
+          incomingString= "/" + incomingString.substring(2) + ".csv";
+          }
+        incomingString.toCharArray(CurrentLogFile,20);
+        }
       pLogState->switchState();
       if (pLogState->isOn()){
          startLog();

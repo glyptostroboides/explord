@@ -142,23 +142,25 @@ void Sensor::setBLEData() {
 }
 
 void Sensor::printSerialHeader() {
-  Serial.println(printHeader());
+  Serial.print(printHeader());
 }
 
 void Sensor::printSerialData(unsigned long * logTime) {
-  Serial.println(printStringData(logTime));
+  Serial.print(printStringData(logTime));
 }
 
 String Sensor::printStringData(unsigned long * logTime) {
   String l_time = String(*logTime);
   String Data = String (l_time + ","+ CharSet[0]->getSValue());
   for (int n = 1; n < CharNb; n++) {Data.concat(String("," + CharSet[n]->getSValue()));}
+  Data.concat(String("\n"));
   return Data;
 }
 
 String Sensor::printHeader() {
   String Header = CharSet[0]->getName();
   for (int n = 1; n < CharNb; n++) {Header.concat(String("," + CharSet[n]->getName()));}
+  Header.concat(String("\n"));
   return Header;
 }
 

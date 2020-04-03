@@ -165,16 +165,18 @@ void BME::init(){
 }
 
 bool BME::readData(){
-  int16_t _Temp=(int16_t) (bme.readTemperature()*100);
-  uint32_t _Pressure = (uint32_t) (bme.readPressure() * 1000);
-  uint16_t _Humidity = (uint16_t) (bme.readHumidity() * 100);
+  float _temp = bme.readTemperature();
+  int16_t _Temp=(int16_t) (_temp * 100);
+  uint32_t _Pressure = (uint32_t) (bme.readPressure()*1000);
+  float _humidity = bme.readHumidity();
+  uint16_t _Humidity = (uint16_t) (_humidity * 100);
    // _SeaLevel = bme.readAltitude(SEALEVELPRESSURE_HPA);
     
   CharSet[0]->setValue((uint8_t*)&_Temp, 2);
-  CharSet[0]->setSValue(String(_Temp));
+  CharSet[0]->setSValue(String(_temp,2));
   CharSet[1]->setValue((uint8_t*)&_Pressure, 2);
   CharSet[1]->setSValue(String(_Pressure));
   CharSet[2]->setValue((uint8_t*)&_Humidity, 2);
-  CharSet[2]->setSValue(String(_Humidity));
+  CharSet[2]->setSValue(String(_humidity,2));
   return true;
 }
