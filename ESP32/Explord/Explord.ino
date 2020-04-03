@@ -90,7 +90,16 @@ Log* pLog;
 /*Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes*/
 static BLECharacteristic* pDelay = NULL;
 
+/*Store the delay and the current log file path into permanent memory*/
 
+void storeDelay() { 
+  EEPROM.writeUInt(10,readDelay);
+  EEPROM.commit();
+  }
+void storeLogFilePath() {
+  EEPROM.writeString(20,CurrentLogFile);
+  EEPROM.commit();
+}
 
 /*
  * Callbacks fonction launched when a value of the custom service is modified by a BLE client
@@ -99,11 +108,15 @@ static BLECharacteristic* pDelay = NULL;
 class ClientCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
       uint8_t* pData = pCharacteristic->getData();
-      if(pCharacteristic == pDelay) {memcpy(&readDelay,pData,4);}
+      if(pCharacteristic == pDelay) {
+          memcpy(&readDelay,pData,4);
+          storeDelay();
+          }
     }
 };
 
 static ClientCallbacks* pClientCallbacks = NULL;
+
 
 class State {
   private :
@@ -259,6 +272,7 @@ void checkSerial() {
   switch (incomingOrder) {
     case 'D' :
       readDelay=incomingParameter.toInt();
+      storeDelay();
       break;
     case 'H' :
       pSensor->printSerialHeader();
@@ -287,6 +301,7 @@ void checkSerial() {
           incomingString= "/" + incomingString.substring(2) + ".csv";
           }
         incomingString.toCharArray(CurrentLogFile,20);
+        storeLogFilePath();
         }
       pLogState->switchState();
       if (pLogState->isOn()){
@@ -350,11 +365,24 @@ void setBLEServer() {
   pAdvertising->start();
 }
 
+void getDelay() { //To recover the delay from EEPROM
+  readDelay=EEPROM.readUInt(10);
+  if (!readDelay){readDelay=1;storeDelay();} //Only for the first start of the device or if delay has been set to 0 ?
+}
+
+void getLogFilePath() {
+  EEPROM.readString(20,CurrentLogFile,20);
+}
+
 void getStates() {
    /*Start the EEPROM memory management and get the module persistant state values*/
   EEPROM.begin(EEPROM_SIZE);
 
   /*Init the state of the device according to EEPROM values*/
+  /*Recover the delay and current log file for now*/
+  getDelay();
+  getLogFilePath();
+  /*Instantiate the boolean configuration stored in EEPROM*/
   
   pStateCallbacks = new StateCallbacks();
   
@@ -373,10 +401,10 @@ bool isTimerWakeUp() {
   wakeup_reason = esp_sleep_get_wakeup_cause();
   switch(wakeup_reason) {
     case ESP_SLEEP_WAKEUP_TIMER : 
-      Serial.println("Wakeup caused by timer"); 
+      Serial.println("Wakeup from sleep"); 
       return true;
     default : 
-      Serial.println("Wakeup was not caused by timer"); 
+      Serial.println("Wakeup from power on"); 
       return false;
     }
   }
@@ -413,19 +441,23 @@ void initStates() {
       }*/
 }
 
-void doStates() {
-  if (pSerialState->isOn()){pSensor->printSerialData(&logTime);} // if Serial is on : print data to serial USB
-  if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected
-  if (pLogState->isOn()) {pLog->logSD(&logTime);} // if Log on log to the current log file
-  logTime+=readDelay; //add the delay to total log time for the next read
-  if (pEcoState->isOn()) {doSleep();}
+bool doRead() {
+  if (pSensor->readData()){ //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles    if (Serial.available()) {checkSerial();}
+    if (pSerialState->isOn()){pSensor->printSerialData(&logTime);} // if Serial is on : print data to serial USB
+    if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected
+    if (pLogState->isOn()) {pLog->logSD(&logTime);} // if Log on log to the current log file
+    if (pEcoState->isOn()) {
+      logTime+=readDelay;
+      doSleep();
+      }
+    return true;
+  }
+  else {return false;}
 }
 
 void doReadAndSleep() {
   //delay(1000);
-  pSensor->readData(); //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles    if (Serial.available()) {checkSerial();}
-  doStates();  //launch doSleep() when EcoState is On : can be refined
-  doSleep();
+  if (doRead()) { doSleep();}
 }
 
 void doSleep() {
@@ -444,12 +476,12 @@ void setup() {
   /*Set the internal led as an output for blinking purpose*/
   pinMode(LEDPIN, OUTPUT);
   
-  getStates();
-
   /* Init the serial connection through USB
      Demarrage de la connection serie a travers le port USB
   */
   Serial.begin(115200);
+
+  getStates();
 
   /* Get the plugged sensor through the value of the signature resistor
    * Découverte du capteur connecté grace à la valeur de résistance signature
@@ -465,6 +497,7 @@ void setup() {
 
   //delay(1000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
   DelayTime=millis();
+  if(doRead()) {switchLed();}
 }
 
 void loop() {
@@ -473,10 +506,12 @@ void loop() {
    */
   if(millis() > DelayTime + (readDelay*1000)) {
     DelayTime=millis();
-    if (pSensor->readData()) { //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles
+    logTime+=readDelay; //add the delay to total log time for the next read
+    if(doRead()) {switchLed();}
+    /*if (pSensor->readData()) { //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles
       doStates(); // Deal with the datas according to state config : BLE, Serial, SD, ...
       switchLed(); //Turn the led on after last reading
-    }
+    }*/
   }
   /*Turn off the led lighted on after last reading*/
   if(LedOn and (millis() > LedTime + BlinkTime)) { switchLed();}
