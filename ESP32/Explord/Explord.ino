@@ -124,14 +124,6 @@ class State {
     //BLEUUID _uuid=BLEUUID((uint16_t)0x0000);
     String _Name="";
     //StateCallbacks* _pStateCallbacks = NULL;
-    void setState(byte istate) {
-      state=istate;
-      if (_adress) {
-        EEPROM.write(_adress,(uint8_t) state);
-        EEPROM.commit();
-        }
-      if (pChar){ setBLEState();}
-    };
     void setBLEState() {
       pChar->setValue((uint8_t*)&state,1);
     };
@@ -147,14 +139,23 @@ class State {
       pChar=pCustomService->createCharacteristic(uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
       setBLEState(); 
       };
-    void switchState(bool muteBLE=false){
+    void setState(byte istate, bool BLE=false) {
+      state=istate;
+      Serial.println(String(_Name + " is " + state));      
+      if (_adress) {
+        EEPROM.write(_adress,(uint8_t) state);
+        EEPROM.commit();
+        }
+      if (pChar and !BLE){ setBLEState();}
+    };
+    void switchState(){
       if (state) { setState(0);
-        Serial.println(String(_Name + " is Off"));
-      }
+      //Serial.println(String(_Name + " is Off"));
+        }
       else { setState(1);
-        Serial.println(String(_Name + " is On"));
-      }
-      if(!muteBLE) {pChar->notify();}
+        //Serial.println(String(_Name + " is On"));
+        }
+      pChar->notify();
     };
     byte isOn() {
       if (_adress) {state = (byte) EEPROM.read(_adress);}
@@ -162,9 +163,22 @@ class State {
     };  
 };
 
+class BLEState : public State {
+  public:
+  BLEState(int adr,BLEUUID id,String Name):State(adr,id,Name){}
+  void switchState () {
+    if (state) {
+          //pChar=NULL;
+       setState(0,true);}
+    else {
+       setState(1,true);
+    }
+  };
+};
+
 static State* pMultiConnectState;
 static State* pSerialState;
-static State* pBLEState;
+static BLEState* pBLEState;
 static State* pLogState;
 static State* pEcoState;
 
@@ -286,11 +300,15 @@ void checkSerial() {
     case 'S' :
       pSerialState->switchState();
       break;
-    case 'B' :
-      pBLEState->switchState(true);
+    case 'B' :  
+      if (pBLEState->isOn()) {
+        stopBLEServer();
+      }
+      else {setBLEServer();};
+      pBLEState->switchState();
       break;
     case 'E' :
-      pEcoState->switchState(true);
+      pEcoState->switchState();
       break;
     case 'L' :
       if (incomingString.charAt(1)==' ') {
@@ -365,6 +383,10 @@ void setBLEServer() {
   pAdvertising->start();
 }
 
+void stopBLEServer() {
+  pAdvertising->stop();
+}
+
 void getDelay() { //To recover the delay from EEPROM
   readDelay=EEPROM.readUInt(10);
   if (!readDelay){readDelay=1;storeDelay();} //Only for the first start of the device or if delay has been set to 0 ?
@@ -386,9 +408,12 @@ void getStates() {
   
   pStateCallbacks = new StateCallbacks();
   
+  /*EEPROM.write(2,1); //turn BLE ON : There is a BUG with BLE off all switch states results in CRASH
+  EEPROM.commit();*/
+  
   pMultiConnectState = new State(0,MultiConnectStateUUID,"Multiconnect");
   pSerialState = new State(1,SerialStateUUID,"Serial");
-  pBLEState = new State(2,BLEStateUUID,"BLE");
+  pBLEState = new BLEState(2,BLEStateUUID,"BLE");
   pLogState = new State(3,LogStateUUID,"Log");
   pEcoState = new State(4,EcoStateUUID,"Eco");
 }
@@ -419,7 +444,7 @@ void initStates() {
       }
   if (pEcoState->isOn()) {
       if(!isTimerWakeUp()) {
-        pEcoState->switchState(true);
+        pEcoState->switchState();
         }
       else {doReadAndSleep();}
       }
