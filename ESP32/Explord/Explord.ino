@@ -2,13 +2,13 @@
   This program send environmental data through BLE with an ESP32.
   The UUID used are the one from the BLE GATT specifications : https://www.bluetooth.com/specifications/gatt
 */
+#include "Device.h" //Store all settings and function of the device
 #include "Configuration.h" //Store all configuration details
-#include "Drivers.h"
-#include "Log.h"
+#include "Drivers.h" //Manage the sensor
+#include "Log.h" //Manage the storage of values inside SD
 
 
 #include "esp_system.h" //Used to modify mac adress of the device
-#include "EEPROM.h" //Used to store device state configurations inside a persistant memory
 
 
 /* BLE for ESP32 default library on ESP32-arduino framework
@@ -32,7 +32,7 @@ uint8_t mac_adress[8] = MAC;
 /*Define the module state stored in the EEPROM persistant memory: communication (Serial, BLE, ...)
  * Definition de l'état du module : communication et autres
  */
-const int EEPROM_SIZE = 64;
+//const int EEPROM_SIZE = 64;
 
 /*Define the initial values of state of the device*/
 unsigned long BlinkTime=BLINK_TIME;//time of the led blink in ms
@@ -59,20 +59,20 @@ bool oldBLEConnected = false;
  * Definition de l'identifiant unique pour le service des capteurs environnementaux
  */
 
-const BLEUUID EnvServiceUUID = BLEUUID((uint16_t)0x181A); // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
+//const BLEUUID EnvServiceUUID = BLEUUID((uint16_t)0x181A); // 0x181A is the service for Environnemental Sensing : service pour les capteurs environnementaux
 
 /*
  * Define the UUID for the custom BLE Service called Explord service used by all sensors
  * Definition de l'identifiant unique pour le service BLE personnel utilisé par tous les capteurs et des identifiants pour ses valeurs
  */
-const BLEUUID CustomServiceUUID = BLEUUID("00004860-1000-2000-3000-6578706c6f72"); //like all custom characteristics start with 0000486*
+//const BLEUUID CustomServiceUUID = BLEUUID("00004860-1000-2000-3000-6578706c6f72"); //like all custom characteristics start with 0000486*
 const BLEUUID DelayUUID = BLEUUID("00004861-1000-2000-3000-6578706c6f72");
 
-const BLEUUID MultiConnectStateUUID = BLEUUID("00004870-1000-2000-3000-6578706c6f72");
-const BLEUUID SerialStateUUID = BLEUUID("00004871-1000-2000-3000-6578706c6f72");
-const BLEUUID LogStateUUID = BLEUUID("00004872-1000-2000-3000-6578706c6f72");
-const BLEUUID BLEStateUUID = BLEUUID("00004873-1000-2000-3000-6578706c6f72");
-const BLEUUID EcoStateUUID = BLEUUID("00004874-1000-2000-3000-6578706c6f72");
+//const BLEUUID MultiConnectStateUUID = BLEUUID("00004870-1000-2000-3000-6578706c6f72");
+//const BLEUUID SerialStateUUID = BLEUUID("00004871-1000-2000-3000-6578706c6f72");
+//const BLEUUID LogStateUUID = BLEUUID("00004872-1000-2000-3000-6578706c6f72");
+//const BLEUUID BLEStateUUID = BLEUUID("00004873-1000-2000-3000-6578706c6f72");
+//const BLEUUID EcoStateUUID = BLEUUID("00004874-1000-2000-3000-6578706c6f72");
 /*
   BLE Server, Environnmental Sensing Service and Custon Service pointers and for the Sensor singleton
   Declaration des pointeurs pour le serveur BLE, le service des données environnementales, le service BLE personnel et le singleton de la classe Sensor
@@ -116,65 +116,6 @@ class ClientCallbacks: public BLECharacteristicCallbacks {
 };
 
 static ClientCallbacks* pClientCallbacks = NULL;
-
-
-class State {
-  private :
-    int _adress=0;
-    //BLEUUID _uuid=BLEUUID((uint16_t)0x0000);
-    String _Name="";
-    //StateCallbacks* _pStateCallbacks = NULL;
-    void setBLEState() {
-      pChar->setValue((uint8_t*)&state,1);
-    };
-  public :
-    State(int adr,BLEUUID id,String Name) : _adress(adr),uuid(id),_Name(Name) {
-      state = (byte) EEPROM.read(_adress);
-      };
-    byte state=1;
-    BLEUUID uuid=BLEUUID((uint16_t)0x0000);
-    BLECharacteristic* pChar;
-    void initBLEState() {
-//      // Create a BLE characteristic 
-      pChar=pCustomService->createCharacteristic(uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
-      setBLEState(); 
-      };
-    void setState(byte istate, bool BLE=false) {
-      state=istate;
-      Serial.println(String(_Name + " is " + state));      
-      if (_adress) {
-        EEPROM.write(_adress,(uint8_t) state);
-        EEPROM.commit();
-        }
-      if (pChar and !BLE){ setBLEState();}
-    };
-    void switchState(){
-      if (state) { setState(0);
-      //Serial.println(String(_Name + " is Off"));
-        }
-      else { setState(1);
-        //Serial.println(String(_Name + " is On"));
-        }
-      pChar->notify();
-    };
-    byte isOn() {
-      if (_adress) {state = (byte) EEPROM.read(_adress);}
-      return state;
-    };  
-};
-
-class BLEState : public State {
-  public:
-  BLEState(int adr,BLEUUID id,String Name):State(adr,id,Name){}
-  void switchState () {
-    if (state) {
-          //pChar=NULL;
-       setState(0,true);}
-    else {
-       setState(1,true);
-    }
-  };
-};
 
 static State* pMultiConnectState;
 static State* pSerialState;
@@ -356,19 +297,19 @@ void setBLEServer() {
 
   pStateCallbacks = new StateCallbacks();
   // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
-  pMultiConnectState->initBLEState();
+  pMultiConnectState->initBLEState(pCustomService);
   pMultiConnectState->pChar->setCallbacks(pStateCallbacks);
   
   // Create a BLE characteristic that enable Serial : Caractéristique pour activer l'envoie des données par le port série
-  pSerialState->initBLEState();
+  pSerialState->initBLEState(pCustomService);
   pSerialState->pChar->setCallbacks(pStateCallbacks);
 
   // Create a BLE characteristic that enable log to a file on onboard SD Card : Caractéristique pour activer l'enregistrement des mesures sur la carte SD
-  pLogState->initBLEState();
+  pLogState->initBLEState(pCustomService);
   pLogState->pChar->setCallbacks(pStateCallbacks);
 
   // Create a BLE characteristic to enable the eco mode that turn off the device and sensor between readings
-  pEcoState->initBLEState();
+  pEcoState->initBLEState(pCustomService);
   pEcoState->pChar->setCallbacks(pStateCallbacks);
 
   // Start the services : Demarrage des services sur les données environnementales et du service personnalisé
@@ -378,6 +319,7 @@ void setBLEServer() {
   // Start advertising : Demarrage des notifications pour le client
   pAdvertising = pServer->getAdvertising();
   pAdvertising->addServiceUUID(EnvServiceUUID);
+  pAdvertising->addServiceUUID(CustomServiceUUID);  
   pAdvertising->setScanResponse(false);
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   pAdvertising->start();
