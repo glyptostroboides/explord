@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="./node_modules/bootstrap/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="./node_modules/@fortawesome/fontawesome-free/css/fontawesome.min.css">
     <link rel="stylesheet" href="./node_modules/@fortawesome/fontawesome-free/css/solid.css">
-    
+
     <link rel="manifest" href="./manifest.json">
     <title>Explord</title>
   </head>
@@ -30,7 +30,7 @@
 
     <script src="./node_modules/moment/moment.js"></script>
     <script src="./node_modules/chart.js/dist/Chart.js"></script>
-    
+
    <script>
 
         const _characteristics = {
@@ -105,7 +105,7 @@
                 min: 0,
                 max: 50000,
                 nb_bit: "Uint16"
-            },
+            }
         };
 
 
@@ -116,12 +116,36 @@
             "00004861-1000-2000-3000-6578706c6f72" : {
                 name : "Delay",
                 short : "delay",
-                nb_bit: "Uint32"
+                nb_bit: "Uint32",
+                type: "numeric",
+                input: "text"
+            },
+            "00004871-1000-2000-3000-6578706c6f72" : {
+                name : "Serial",
+                short : "serial",
+                nb_bit: "Uint32",
+                type: "boolean",
+                input: "checkbox"
+            },
+            "00004870-1000-2000-3000-6578706c6f72" : {
+                name : "Multiconnect",
+                short : "multiconnect",
+                nb_bit: "Uint32",
+                type: "boolean",
+                input: "checkbox"
+            },
+            "00004872-1000-2000-3000-6578706c6f72" : {
+                name : "Log",
+                short : "logstate",
+                nb_bit: "Uint32",
+                type: "boolean",
+                input: "checkbox"
             }
+
         }
 
         const customServiceUuid = "00004860-1000-2000-3000-6578706c6f72";
-        
+
         let _devices = [];
         let _charts = {};
         let _services = [];
@@ -153,9 +177,9 @@
             let queue = Promise.resolve();
             services.forEach(service => {
             queue = queue.then(_ => service.getCharacteristics().then(characteristics => {
-                console.log('> Service: ' + service.uuid);
+                console.log('  > Service: ' + service.uuid);
                 characteristics.forEach(characteristic => {
-                    console.log(characteristic.uuid);
+                    // console.log(characteristic.uuid);
                     let uuid = characteristic.uuid.slice(4,8);
                     if (_characteristics[uuid]) {
                         addCharacteristicContainer(uuid, deviceId);
@@ -163,7 +187,7 @@
                     }
                     else if (_characteristics_parameters[characteristic.uuid]) {
                         if (_devices[deviceId]["parameters"] == undefined) {
-                            _devices[deviceId]["parameters"] = []; 
+                            _devices[deviceId]["parameters"] = [];
                         }
                         _devices[deviceId]["parameters"][characteristic.uuid] = characteristic;
                         addCharacteristicParametersContainer(characteristic.uuid, deviceId);
@@ -202,12 +226,13 @@
                         >
                             ${name}
                         </button>
-                        <button class="btn btn-danger float-right" onclick="onDisconnectButtonClick(${id})">Se déconnecter</button>                      
+                        <button class="btn btn-danger float-right" onclick="onDisconnectButtonClick(${id})">Se déconnecter</button>
                         </h5>
-                    </div> 
+                    </div>
                     <div id="collapse_parameters-${id}" class="collapse">
-                        <div class="border-bottom pb-2" id="parameters_device-${id}">
-                            <div id="parameters_list_${id}"></div>
+                        <div class="border-bottom pb-2 m-2" id="parameters_device-${id}">
+                            <h5>Paramètres</h5>
+                            <div id="parameters_list_${id}" class="p-2"></div>
                             <button class="btn btn-primary" onclick="configureParameters(${id})">Configurer</button>
                         </div>
                     </div>
@@ -234,7 +259,7 @@
                             <div class="form-inline">
                                 <div class="form-group m-2">
                                     <label for="graph_nb_val_${id}" class="ml-2">Nombre de valeurs sur le graphique: </label>
-                                    <input id="graph_nb_val_${id}" type="text" class="form-control ml-2" onchange="log_delay(${id})" value="100"></input>
+                                    <input id="graph_nb_val_${id}" type="text" class="form-control ml-1" onchange="log_delay(${id})" value="100"></input>
                                 </div>
                             </div>
                             </div>
@@ -325,6 +350,7 @@
         }
 
         function handleCharacteristicParametersValueChange(event, deviceId) {
+            console.log("handleCharacteristicParametersValueChange");
             let carac_code = event.target.uuid;
             value = parseValue(event.target.value, _characteristics[carac_code].nb_bit);
             const characValueContainer = document.querySelector(
@@ -340,8 +366,13 @@
             let container = document.querySelector('#parameters_list_'+deviceId);
             let div = document.createElement('div');
             let id_carac = _characteristics_parameters[uuid].short;
-            div.className = "p-4";
-            div.innerHTML = "<div>" + _characteristics_parameters[uuid].name + " : <input type='text' id=value_parameters_" + deviceId + "_" + id_carac + "></input></div>";
+            div.className = "pt-2";
+            div.innerHTML =
+                "<div>" +
+                _characteristics_parameters[uuid].name +
+                " : <input type='" + _characteristics_parameters[uuid].input +
+                "' id=value_parameters_" + deviceId + "_" + id_carac +
+                "></input></div>";
             container.appendChild(div);
         }
 
@@ -355,7 +386,11 @@
                 );
                 return characteristic.readValue();
                 }
-            ).catch(error => { console.log(error); });
+            ).catch(
+                error => {
+                     console.log(error);
+                }
+            );
         }
 
         function parseValue(value, type) {
@@ -374,7 +409,7 @@
               result = value.getUint32(0, /*littleEndian=*/true) /100;
           }
           return result;
-        }   
+        }
 
         function formatValue(value, type) {
           let result;
@@ -391,20 +426,30 @@
               result = Int32Array.of(value, /*littleEndian=*/true);
           }
           return result;
-        }   
+        }
 
         function configureParameters(deviceId){
             Object.entries(_devices[deviceId]["parameters"]).forEach(
                 ([uuid, charac]) => writeOnService(deviceId, uuid,charac)
             );
         }
+
         function writeOnService(deviceId, uuid, characteristic) {
-            let delay = document.querySelector("#value_parameters_" + deviceId + "_" + _characteristics_parameters[uuid].short).value;
-            
-            var newDelay = formatValue(delay,_characteristics_parameters[uuid].nb_bit);
-            characteristic.writeValue(newDelay)
+            let paramInput = document.querySelector("#value_parameters_" + deviceId + "_" + _characteristics_parameters[uuid].short)
+            let paramValue;
+            if ( _characteristics_parameters[uuid].input == "checkbox") {
+                paramValue = paramInput.checked ? 1 : 0 ;
+            }
+            else {
+                paramValue = paramInput.value;
+            }
+            // si aucune valeur définie la valeur n'est pas envoyée
+            if (!paramValue) return;
+
+            var newParamValue = formatValue(paramValue,_characteristics_parameters[uuid].nb_bit);
+            characteristic.writeValue(newParamValue)
             .then(_ => {
-                console.log('OK');
+                console.log('OK paramters send to device');
             })
             .catch(error => { console.log(error); })
         }
@@ -437,7 +482,6 @@
             }
             //Affichage bouton exporter
             showHtmlElement(document.querySelector("#export-csv_"+deviceId));
-
         }
 
         function storeValue(deviceId) {
@@ -456,7 +500,7 @@
             refreshGraphValues(deviceId);
         }
 
-        //CSV
+        //------------------------------CSV
         function generateCsv(deviceId) {
             let csvContent = "data:text/csv;charset=utf-8,";
             csvContent += "time," + Object.keys(_devices[deviceId].current_value).map( k =>
@@ -491,7 +535,7 @@
             link.click();
         }
 
-        //Graph
+        //-------------------------Graph
         function generateGraph(uuid, deviceId) {
 
             let carac = _characteristics[uuid];
@@ -536,7 +580,7 @@
         function refreshGraphValues(deviceId) {
             let device = _devices[deviceId];
             let charts = device["charts"];
-            
+
             if (charts == "undefined") return;
 
             Object.keys(charts).forEach(characCode =>
@@ -561,7 +605,7 @@
                     });
                 }
             });
-            
+
             // Si nb d'éléments trop important suppression
             // des premières valeurs
             const durationOfSerie = parseInt(document.querySelector("#graph_nb_val_"+deviceId).value);
@@ -579,7 +623,7 @@
             // Générate label series
             let delay = parseInt(document.querySelector("#delay_"+deviceId).value);
             let durationOfSerie = parseInt(document.querySelector("#graph_nb_val_"+deviceId).value);
-                                    
+
             let initlabels = [{x: new Date(), y: firstValue}]
             for (let i = 1; i < durationOfSerie/delay; i++) {
                 const previousDate = initlabels[i-1].x;
@@ -588,9 +632,11 @@
                     x: newDate
                 });
             }
-            return initlabels; 
+            return initlabels;
         }
-        // Services worker
+
+
+        //-------------------------Services worker
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.register('sw.js')
           .then(function(registration) {
