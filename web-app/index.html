@@ -159,8 +159,10 @@
           console.log("connecting ...");
           let deviceId;
           navigator.bluetooth.requestDevice(
-            { filters: [{ services: ['environmental_sensing', customServiceUuid] }] }
-          ).then(
+                // filters devices with environmental_sensing only
+                //     Add custom services block devices detection on android
+                {filters: [{ services: ['environmental_sensing'] }] }
+            ).then(
             device => {
                 _devices.push({"device" : device, "charts":{}, "current_value":{}});
                 deviceId = _devices.length - 1;
