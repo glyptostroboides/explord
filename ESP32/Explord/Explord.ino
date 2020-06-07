@@ -1,58 +1,33 @@
 /*
-  This program send environmental data through BLE with an ESP32.
+  This program send environmental data through BLE or Serial with an ESP32.
   The UUID used are the one from the BLE GATT specifications : https://www.bluetooth.com/specifications/gatt
 */
 #include "Device.h" //Store all settings and function of the device
-#include "Configuration.h" //Store all configuration details
-#include "Drivers.h" //Manage the sensor
-#include "Log.h" //Manage the storage of values inside SD
+//#include "Configuration.h" //Store all configuration details
+//#include "Drivers.h" //Manage the sensor
+//#include "Log.h" //Manage the storage of values inside SD
 
 
-#include "esp_system.h" //Used to modify mac adress of the device
-
-
-/* BLE for ESP32 default library on ESP32-arduino framework
-  / Inclusion des bibliotheques BLE pour l'environnement ESP-32 Arduino*/
-#include <BLEDevice.h>
-#include <BLEServer.h>
-#include <BLEUtils.h>
-#include <BLE2902.h>
-
-/*
-   This part is not specific to any sensor. BLE Server and Services that are used by all sensors
-*/
-const String deviceName = DEVICE_NAME;
-const String deviceNumber = DEVICE_NUMBER; //added to the Sensor specific device name
-
-/*To change the mac adress when the sensor is changed in order to avoid a bug in the Web Bluetooth API because characteristic are changing
- */
- //Original esp ttgo t1 mac adress are of type : 80:7D:3A:E4:
-uint8_t mac_adress[8] = MAC;
-
-/*Define the module state stored in the EEPROM persistant memory: communication (Serial, BLE, ...)
- * Definition de l'état du module : communication et autres
- */
-//const int EEPROM_SIZE = 64;
 
 /*Define the initial values of state of the device*/
 unsigned long BlinkTime=BLINK_TIME;//time of the led blink in ms
 bool LedOn=false; //led starts off
-RTC_DATA_ATTR char CurrentLogFile[20]=DEFAULT_LOG_FILE;//log file name, saved for deep sleep
-RTC_DATA_ATTR uint32_t readDelay = READ_DELAY; //Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes
+//RTC_DATA_ATTR char CurrentLogFile[20]=DEFAULT_LOG_FILE;//log file name, saved for deep sleep
+//RTC_DATA_ATTR uint32_t readDelay = READ_DELAY; //Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes
 
 /*Define the timer to store the time for the main loop*/
-unsigned long LedTime=0; //timer for the blinking led
+unsigned long LedTime = 0; //timer for the blinking led
 unsigned long DelayTime = 0; // timer for the sensor readings inside the main loop
 unsigned long ReadvertisingTime = 0; //timer for readvertising in BLE
-RTC_DATA_ATTR unsigned long logTime =0; //Store the time between the begin of log to save or display it : temps depuis le début de l'acquisition à afficher ou à transmettre
-
+/*RTC_DATA_ATTR unsigned long logTime = 0; //Store the time between the begin of log to save or display it : temps depuis le début de l'acquisition à afficher ou à transmettre
+*/
 /*
   Value to store the BLE server connection state
   Valeurs d'états de la connection BLE pour déterminer si il faut emettre les notifications ou non et recommencer a signale le capteur pour le BLE 4.1
 */
 
-bool BLEConnected = false;
-bool oldBLEConnected = false;
+//bool BLEConnected = false; //
+//bool oldBLEConnected = false; //
  
 /*
  * Define the UUID for the BLE GATT environnmental sensing service used by all sensors
@@ -66,7 +41,7 @@ bool oldBLEConnected = false;
  * Definition de l'identifiant unique pour le service BLE personnel utilisé par tous les capteurs et des identifiants pour ses valeurs
  */
 //const BLEUUID CustomServiceUUID = BLEUUID("00004860-1000-2000-3000-6578706c6f72"); //like all custom characteristics start with 0000486*
-const BLEUUID DelayUUID = BLEUUID("00004861-1000-2000-3000-6578706c6f72");
+//const BLEUUID DelayUUID = BLEUUID("00004861-1000-2000-3000-6578706c6f72");
 
 //const BLEUUID MultiConnectStateUUID = BLEUUID("00004870-1000-2000-3000-6578706c6f72");
 //const BLEUUID SerialStateUUID = BLEUUID("00004871-1000-2000-3000-6578706c6f72");
@@ -77,21 +52,20 @@ const BLEUUID DelayUUID = BLEUUID("00004861-1000-2000-3000-6578706c6f72");
   BLE Server, Environnmental Sensing Service and Custon Service pointers and for the Sensor singleton
   Declaration des pointeurs pour le serveur BLE, le service des données environnementales, le service BLE personnel et le singleton de la classe Sensor
 */
-static BLEServer* pServer = NULL;
-static BLEAdvertising* pAdvertising = NULL;
-static BLEService* pEnvService = NULL;
-static BLEService* pCustomService = NULL;
+//static BLEServer* pServer = NULL;//
+//static BLEAdvertising* pAdvertising = NULL;//
+//static BLEService *pEnvService = NULL, *pCustomService = NULL;//
 
 /*Define the instance pointer of the sensor, the log file, ...*/
-Sensor* pSensor;
-Log* pLog;
+//Sensor* pSensor;//
+//Log* pLog;//
 
-
+/*
 /*Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes*/
-static BLECharacteristic* pDelay = NULL;
+//static BLECharacteristic* pDelay = NULL;
 
 /*Store the delay and the current log file path into permanent memory*/
-
+/*
 void storeDelay() { 
   EEPROM.writeUInt(10,readDelay);
   EEPROM.commit();
@@ -105,7 +79,8 @@ void storeLogFilePath() {
  * Callbacks fonction launched when a value of the custom service is modified by a BLE client
  * Fonction définie par la bibliothèque est lancée lorsqu'une valeur a été modifiée par un client BLE
  */
-class ClientCallbacks: public BLECharacteristicCallbacks {
+/*
+class ClientCallbacks: public BLECharacteristicCallbacks {//à gerer
     void onWrite(BLECharacteristic *pCharacteristic) {
       uint8_t* pData = pCharacteristic->getData();
       if(pCharacteristic == pDelay) {
@@ -113,17 +88,17 @@ class ClientCallbacks: public BLECharacteristicCallbacks {
           storeDelay();
           }
     }
-};
-
+};*/
+/*
 static ClientCallbacks* pClientCallbacks = NULL;
 
-static State* pMultiConnectState;
-static State* pSerialState;
-static BLEState* pBLEState;
-static State* pLogState;
-static State* pEcoState;
+static BoolState* pMultiConnectState;//
+static BoolState* pSerialState;//
+static BLEState* pBLEState;//
+static BoolState* pLogState;//
+static BoolState* pEcoState;//
 
-class StateCallbacks: public BLECharacteristicCallbacks {
+class StateCallbacks: public BLECharacteristicCallbacks { //
   void onWrite(BLECharacteristic *pCharacteristic) {
       if (pCharacteristic == pMultiConnectState->pChar) {
         pMultiConnectState->switchState();
@@ -138,13 +113,14 @@ class StateCallbacks: public BLECharacteristicCallbacks {
     } 
 };
 
-static StateCallbacks* pStateCallbacks = NULL;
+static StateCallbacks* pStateCallbacks = NULL; //
 
 /*
    Callbacks fontion launched by the server when a connection or a disconnection occur
    Fonction definie par la bibliotheque qui est lancée lorsque l'état du serveur BLE change : événement : connexion et deconnexion
 */
-class ServerCallbacks: public BLEServerCallbacks {
+/*
+class ServerCallbacks: public BLEServerCallbacks { //
     void onConnect(BLEServer* pServer) {
       BLEConnected = true;
       if (pMultiConnectState->isOn()) { BLEDevice::startAdvertising();} // needed to support multi-connect, that mean more than one client connected to server, must be commented if using BLE 4.0 device
@@ -155,7 +131,7 @@ class ServerCallbacks: public BLEServerCallbacks {
     }
 };
 
-uint8_t getPluggedSensor() {
+uint8_t getPluggedSensor() { //
   pinMode(PPPOWERPIN,OUTPUT);
   digitalWrite(PPPOWERPIN, HIGH); //set high the pin to power the resistor bridge
   delay(10);
@@ -200,8 +176,8 @@ uint8_t getPluggedSensor() {
   mac_adress[5] = deviceNumber.toInt();
   //Determine the mac adress of the device depending on sensor connected and default device number
   }
-}
-
+};
+*/
 void switchLed() {
   LedTime=millis();
   if(LedOn) {
@@ -212,13 +188,13 @@ void switchLed() {
     digitalWrite(LEDPIN, HIGH);
     LedOn=true;
   }
-}
-
-void startLog() {
+};
+/*
+void startLog() {//
   logTime=0;
   pLog = new Log(pSensor,CurrentLogFile);
   pLog->initSD();
-}
+};
 
 void checkSerial() {
   String incomingString = Serial.readStringUntil('\r');
@@ -272,9 +248,9 @@ void checkSerial() {
       Serial.println("****************END*******************");
       break; 
   }
-}
+};
 
-void setBLEServer() {
+void setBLEServer() {//manque Delay et CurrentLogFile (sans BLE pour l'instant)//
   //Init the BLE Server : Demarrage du serveur BLE fournissant les valeurs mesurées et les paramétres d'état du module
   // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
   BLEDevice::init((deviceName + pSensor->getName() + "-" + deviceNumber).c_str());
@@ -323,47 +299,48 @@ void setBLEServer() {
   pAdvertising->setScanResponse(false);
   pAdvertising->setMinPreferred(0x0);  // set value to 0x00 to not advertise this parameter
   pAdvertising->start();
-}
+};
 
-void stopBLEServer() {
+void stopBLEServer() {//
   pAdvertising->stop();
-}
+};
 
 void getDelay() { //To recover the delay from EEPROM
   readDelay=EEPROM.readUInt(10);
   if (!readDelay){readDelay=1;storeDelay();} //Only for the first start of the device or if delay has been set to 0 ?
-}
+};
 
 void getLogFilePath() {
   EEPROM.readString(20,CurrentLogFile,20);
-}
-
+};
+*/
+/*
 void getStates() {
    /*Start the EEPROM memory management and get the module persistant state values*/
-  EEPROM.begin(EEPROM_SIZE);
+  //EEPROM.begin(EEPROM_SIZE);
 
   /*Init the state of the device according to EEPROM values*/
   /*Recover the delay and current log file for now*/
-  getDelay();
-  getLogFilePath();
+  //getDelay();
+  //getLogFilePath();
   /*Instantiate the boolean configuration stored in EEPROM*/
   
-  pStateCallbacks = new StateCallbacks();
+  //pStateCallbacks = new StateCallbacks();
   
   /*EEPROM.write(2,1); //turn BLE ON : There is a BUG with BLE off all switch states results in CRASH
   EEPROM.commit();*/
-  
-  pMultiConnectState = new State(0,MultiConnectStateUUID,"Multiconnect");
-  pSerialState = new State(1,SerialStateUUID,"Serial");
+  /*
+  pMultiConnectState = new BoolState(0,MultiConnectStateUUID,"Multiconnect");
+  pSerialState = new BoolState(1,SerialStateUUID,"Serial");
   pBLEState = new BLEState(2,BLEStateUUID,"BLE");
-  pLogState = new State(3,LogStateUUID,"Log");
-  pEcoState = new State(4,EcoStateUUID,"Eco");
-}
+  pLogState = new BoolState(3,LogStateUUID,"Log");
+  pEcoState = new BoolState(4,EcoStateUUID,"Eco");
+};
 
-bool isTimerWakeUp() {
+bool isTimerWakeUp() { //
   /* Get the wake up reason, to detect timer wake up of user wake up (switch off and on)
    * Détermination du mode de réveil : minuteur programmé ou bouton marche arrêt
-   */
+   *//*
   esp_sleep_wakeup_cause_t wakeup_reason;
   wakeup_reason = esp_sleep_get_wakeup_cause();
   switch(wakeup_reason) {
@@ -374,12 +351,12 @@ bool isTimerWakeUp() {
       Serial.println("Wakeup from power on"); 
       return false;
     }
-  }
+};
 
-void initStates() {
+void initStates() {//
   /* Init the services according to the states of the device
    * Démarrage des services conformément aux valeurs d'états du module
-   */
+   *//*
   if (pLogState->isOn()) {
       pLog = new Log(pSensor,CurrentLogFile);
       pLog->initSD();
@@ -396,19 +373,9 @@ void initStates() {
       }  
       
   if (pSerialState->isOn()) {pSensor->printSerialHeader();}
-/*  if (pLogState->isOn()) {
-      pLog = new Log(pSensor,CurrentLogFile);
-      pLog->initSD();
-      }
-  if (pEcoState->isOn()) {
-      if(!isTimerWakeUp()) {
-        pEcoState->switchState(true);
-        }
-      else {doReadAndSleep();}
-      }*/
-}
+};
 
-bool doRead() {
+bool doRead() {//
   if (pSensor->readData()){ //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles    if (Serial.available()) {checkSerial();}
     if (pSerialState->isOn()){pSensor->printSerialData(&logTime);} // if Serial is on : print data to serial USB
     if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected
@@ -420,14 +387,14 @@ bool doRead() {
     return true;
   }
   else {return false;}
-}
+};
 
-void doReadAndSleep() {
+void doReadAndSleep() {//
   //delay(1000);
   if (doRead()) { doSleep();}
-}
+};
 
-void doSleep() {
+void doSleep() {//
   pSensor->powerOff();
   unsigned long TimerDelay = (readDelay *1000000);
   if (TimerDelay > micros()) {TimerDelay-=micros();}
@@ -436,8 +403,10 @@ void doSleep() {
   Serial.println(TimerDelay);
   Serial.flush(); 
   esp_deep_sleep_start();
-}
+};
+*/
 
+Device * pDevice;
 
 void setup() {
   /*Set the internal led as an output for blinking purpose*/
@@ -448,33 +417,35 @@ void setup() {
   */
   Serial.begin(115200);
 
-  getStates();
+  //getStates();
 
   /* Get the plugged sensor through the value of the signature resistor
    * Découverte du capteur connecté grace à la valeur de résistance signature
    */
-  getPluggedSensor();
-  pSensor->powerOn();
-  pSensor->init();
-
+  //getPluggedSensor();
+  //pSensor->powerOn();
+  //pSensor->init();
+  pDevice = new Device();
+  pDevice->startSensor();
+  
   /* Init the services according to the states of the device
    * Démarrage des services conformément aux valeurs d'états du module
    */
-  initStates();
+  //initStates();
 
   //delay(1000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
   DelayTime=millis();
-  if(doRead()) {switchLed();}
+  if(pDevice->doRead()) {switchLed();}
 }
 
 void loop() {
   /*
    * Read the sensor data according to the delay and send it through BLE and Serial
    */
-  if(millis() > DelayTime + (readDelay*1000)) {
+  if(millis() > DelayTime + (pDevice->pStates->pReadDelay->value*1000)) {
     DelayTime=millis();
-    logTime+=readDelay; //add the delay to total log time for the next read
-    if(doRead()) {switchLed();}
+    logTime+=pDevice->pStates->pReadDelay->value; //add the delay to total log time for the next read
+    if(pDevice->doRead()) {switchLed();}
     /*if (pSensor->readData()) { //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles
       doStates(); // Deal with the datas according to state config : BLE, Serial, SD, ...
       switchLed(); //Turn the led on after last reading
@@ -487,18 +458,18 @@ void loop() {
    * BLE Connecting and Disconnecting stuff
    */
   // disconnecting // give the bluetooth stack the chance to get things ready : si aucun client n'est connecté le capteur retente de proposer des données après 500ms
-  if (!BLEConnected and oldBLEConnected and (millis()> ReadvertisingTime+ 500 )) {
+  if (!pDevice->BLEConnected and pDevice->oldBLEConnected and (millis()> ReadvertisingTime+ 500 )) {
     ReadvertisingTime=millis();
     //pServer->startAdvertising(); 
-    pAdvertising->start(); // restart advertising
-    oldBLEConnected = BLEConnected;
+    pDevice->startAdvertisingBLE(); // restart advertising
+    pDevice->oldBLEConnected = pDevice->BLEConnected;
   }
   // connecting
-  if (BLEConnected && !oldBLEConnected) { oldBLEConnected = BLEConnected; }// Connection to a BLE client done : connection à un client BLE effectuée
+  if (pDevice->BLEConnected && !pDevice->oldBLEConnected) { pDevice->oldBLEConnected = pDevice->BLEConnected; }// Connection to a BLE client done : connection à un client BLE effectuée
   
   /*
    * Serial stuff to read the incoming settings and order through USB Serial port
    */
-  if (Serial.available()) {checkSerial();}
+  if (Serial.available()) {pDevice->getSerial();}
   
 }

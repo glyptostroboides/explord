@@ -11,7 +11,7 @@
 
 #define BLINK_TIME 30 //Time for the led to blink in ms
 
-#define MAC {0x80,0x7D,0x3A,0x00,0x00,0x00} //Initial mac adress : fourth and fifth bytes changed according to sensor plugged and to device number
+#define DEVICE_MAC {0x80,0x7D,0x3A,0x00,0x00,0x00} //Initial mac adress : fourth and fifth bytes changed according to sensor plugged and to device number
 
 #define DEFAULT_LOG_FILE "/explord_data.csv" //Default log file name for the csv log
 
