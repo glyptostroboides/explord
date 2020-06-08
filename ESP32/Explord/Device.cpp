@@ -1,7 +1,7 @@
 #include "Device.h"
 
 uint8_t mac_adress[8] = DEVICE_MAC;
-unsigned long logTime = 0;
+RTC_DATA_ATTR unsigned long logTime = 0;
 
 void State::initBLEState(BLEService* pService) {
 //      // Create a BLE characteristic 
@@ -65,7 +65,7 @@ void StringState::setBLEState() {
 };
 
 void StringState::storeString() {
-  EEPROM.writeString(str_size,str);
+  EEPROM.writeString(_adress,str);
   EEPROM.commit();
 };
 
@@ -284,7 +284,7 @@ void Device::initSettings() {
       pLog = new Log(pSensor,pStates->pLogFilePath->str);
       pLog->initSD();
       }
-  if (pStates->pEcoState->isOn()) { /*Ecostate there to prevent the init of the BLE Server when in EcoMode*/
+  if (pStates->pEcoState->isOn()) { /*Ecostate is there to prevent the init of the BLE Server when in EcoMode*/
       if(isTimerWakeUp()) {doReadAndSleep();} 
       } 
   if (pStates->pBLEState->isOn()) {
@@ -295,7 +295,7 @@ void Device::initSettings() {
       pSensor->printSerialHeader();
       }
   if (pStates->pEcoState->isOn()) {
-      pStates->pEcoState->switchState();//WARNING : produce a crash with all settings , if the server is not setted before this occured : TO LOOK AGAIN
+      pStates->pEcoState->switchState();//WARNING : produce a crash with all settings , if the server initiate before this occured : TO INVESTIGATE AGAIN
       }
 };
 
@@ -313,7 +313,9 @@ void Device::States::StateCallbacks::onWrite (BLECharacteristic *pCharacteristic
       pLogState->switchState();
       if (pLogState->isOn()){startLog();}
       }
-  if (pCharacteristic == pEcoState->pChar) {pEcoState->switchState();}
+  if (pCharacteristic == pEcoState->pChar) {
+      pEcoState->switchState();
+      }
   if (pCharacteristic == pReadDelay->pChar) {
       uint8_t* pData = pCharacteristic->getData();
       memcpy(&pReadDelay->value,pData,4);
@@ -360,11 +362,12 @@ void Device::getSerial() {
         else {
           incomingString= "/" + incomingString.substring(2) + ".csv";
           }
-        incomingString.toCharArray(pStates->pLogFilePath->str,43);
+        pStates->pLogFilePath->str_size=incomingString.length();
+        incomingString.toCharArray(pStates->pLogFilePath->str,pStates->pLogFilePath->str_size);
         pStates->pLogFilePath->storeString();
         }
       pStates->pLogState->switchState();
-      if (pStates->pLogState->isOn()){startLog();        }
+      if (pStates->pLogState->isOn()){startLog();}
       break;
     case 'R' :
       pLog->readFile();
@@ -376,10 +379,9 @@ void Device::getSerial() {
 bool Device::doRead() {
   if (pSensor->readData()){ //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles    if (Serial.available()) {checkSerial();}
     if (pStates->pSerialState->isOn()){pSensor->printSerialData(&logTime);} // if Serial is on : print data to serial USB
-    if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected
+    if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected advertise the new value
     if (pStates->pLogState->isOn()) {pLog->logSD(&logTime);} // if Log on log to the current log file
-    if (pStates->pEcoState->isOn()) { //going to sleep when Eco state is turned on
-      logTime+=pStates->pReadDelay->value; // but before this increment the time since log start
+    if (pStates->pEcoState->isOn()) { //going to sleep when Eco state has been turned on
       doSleep();
       }
     return true;
@@ -395,7 +397,8 @@ void Device::doReadAndSleep() {
 void Device::doSleep() {
   pSensor->powerOff();
   unsigned long TimerDelay = (pStates->pReadDelay->value *1000000);
-  if (TimerDelay > micros()) {TimerDelay-=micros();}
+  //TimerDelay-=micros();
+  if (TimerDelay > micros()) {TimerDelay-=micros();} //If the sleep is launched remove the execution time to the delay : DONT WORK AT FIRST LAUNCH WITH SERIAL ? TOO LONG SERIAL?
   esp_sleep_enable_timer_wakeup(TimerDelay);
   Serial.println("Going to sleep now for : ");
   Serial.println(TimerDelay);

@@ -163,7 +163,7 @@ class Device {
     static void startLog();
     void getSerial();
     bool doRead();
-    void doSleep();
+    static void doSleep();
     void doReadAndSleep();
 };
 

@@ -427,8 +427,8 @@ void setup() {
   pDevice->initSettings();
 
   //delay(1000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
-  DelayTime=millis();
   if(pDevice->doRead()) {switchLed();}
+  DelayTime=millis();
 }
 
 void loop() {
@@ -436,10 +436,10 @@ void loop() {
    * Read the sensor data according to the delay and send it through BLE and Serial
    */
   if(millis() > DelayTime + (pDevice->pStates->pReadDelay->value*1000)) { //launched when the time since last measurement is higher than the readDelay
-    DelayTime=millis();
     logTime+=pDevice->pStates->pReadDelay->value; //add the delay to total log time for the next read
     /* Get the data from sensor and act according to settings and turn led on after last reading*/
     if(pDevice->doRead()) {switchLed();} //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles
+    DelayTime=millis(); //WARNING : issue when the delay is changed
   }
   /*Turn off the led lighted on after last reading*/
   if(LedOn and (millis() > LedTime + BlinkTime)) { switchLed();}
