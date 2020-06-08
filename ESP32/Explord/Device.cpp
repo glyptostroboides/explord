@@ -2,40 +2,42 @@
 
 uint8_t mac_adress[8] = DEVICE_MAC;
 RTC_DATA_ATTR unsigned long logTime = 0;
+Preferences Settings;
 
 void State::initBLEState(BLEService* pService) {
 //      // Create a BLE characteristic 
   pChar=pService->createCharacteristic(uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
 };
       
-void BoolState::setState(byte istate, bool BLE=false) {
+void BoolState::setState(bool istate, bool BLE=false) {
   state=istate;
   Serial.println(String(_Name + " is " + state));      
-  if (_adress) {
+  /*if (_adress) {
     EEPROM.write(_adress,(uint8_t) state);
     EEPROM.commit();
-    }
+    }*/
+  Settings.putBool(_Name.c_str(),state);
   //if (pChar and !BLE){ setBLEState();}
   if (!BLE) {setBLEState();}
 };
     
 void BoolState::switchState() {
-  if (state) { setState(0);
+  if (state) { setState(false);
   //Serial.println(String(_Name + " is Off"));
     }
-  else { setState(1);
+  else { setState(true);
     //Serial.println(String(_Name + " is On"));
     }
 };
     
-byte BoolState::isOn() {
-  if (_adress) {state = (byte) EEPROM.read(_adress);}
-  return state;
+bool BoolState::isOn() {
+  //if (_adress) {state = (byte) EEPROM.read(_adress);}
+  return Settings.getBool(_Name.c_str());
 };  
 
 void BLEState::switchState() { //Can be changed simply by overwriting setBLEState to do nothing : void BLEState::setBLEState (){}; WARNING
-  if (state) {setState(0,true);}
-  else {setState(1,true);}
+  if (state) {setState(false,true);}
+  else {setState(true,true);}
 };
 
 void BoolState::setBLEState() {
@@ -49,8 +51,9 @@ void ValueState::setBLEState() {
 };
 
 void ValueState::storeValue() {
-  EEPROM.writeUInt(_adress,value);
-  EEPROM.commit();
+  Settings.putUInt(_Name.c_str(),value);
+  //EEPROM.writeUInt(_adress,value);
+  //EEPROM.commit();
 };
 
 void ValueState::setValue(uint32_t Value) {
@@ -65,8 +68,9 @@ void StringState::setBLEState() {
 };
 
 void StringState::storeString() {
-  EEPROM.writeString(_adress,str);
-  EEPROM.commit();
+  Settings.putString(_Name.c_str(),str);//str could be changed to String
+  //EEPROM.writeString(_adress,str);
+  //EEPROM.commit();
 };
 
 void StringState::setString (char string[]) {
@@ -106,8 +110,9 @@ StringState* Device::States::pLogFilePath = NULL;
 
 
 Device::States::States() {
-  /*Start the EEPROM memory management and get the module persistant state values*/
-  EEPROM.begin(EEPROM_SIZE);
+  /*Start the persistant memory management and get the module persistant state values*/
+  //EEPROM.begin(EEPROM_SIZE);
+  Settings.begin("settings");//Define the settings namespace
 
   /*Instantiate the settings according to the one contained in the EEPROM memory*/
   

@@ -15,8 +15,9 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-#include "EEPROM.h" //Used to store device state configurations inside a persistant memory
-
+#include "EEPROM.h" 
+#include <Preferences.h> //Used to store device state configurations inside a persistant memory
+extern Preferences Settings;
 /*
    This part is not specific to any sensor. BLE Server and Services that are used by all sensors
 */
@@ -28,10 +29,6 @@ const String deviceNumber = DEVICE_NUMBER; //added to the Sensor specific device
  //Original esp ttgo t1 mac adress are of type : 80:7D:3A:E4:
 extern uint8_t mac_adress[8];
 
-/*Define the module state stored in the EEPROM persistant memory: communication (Serial, BLE, ...)
- * Definition de l'état du module : communication et autres
- */
-const int EEPROM_SIZE = 64;
 
 /*
  * Define the UUID for the BLE GATT environnmental sensing service used by all sensors
@@ -66,7 +63,7 @@ class State {
     State(int adr,BLEUUID id,String Name) : _adress(adr),uuid(id),_Name(Name) {};
     //byte state=1;
     int _adress=0;
-    String _Name="";
+    String _Name =""; //was a String before
     BLEUUID uuid=BLEUUID((uint16_t)0x0000);
     BLECharacteristic* pChar;
     void initBLEState(BLEService* pService);
@@ -77,12 +74,12 @@ class BoolState : public State {
     void setBLEState();
   public :
     BoolState(int adr,BLEUUID id,String Name) : State(adr,id,Name) {
-      state = (byte) EEPROM.read(_adress);
+      state = Settings.getBool(_Name.c_str(),false);
       };
-    byte state=1;
-    void setState(byte istate, bool BLE);
+    bool state;
+    void setState(bool istate, bool BLE);
     void switchState();
-    byte isOn();  
+    bool isOn();  
 };
 
 class BLEState : public BoolState {
@@ -96,7 +93,8 @@ class ValueState : public State { // class for the read delay
     void setBLEState();
   public:
     ValueState(int adr,BLEUUID id,String Name) : State(adr,id,Name) {
-      value = (uint32_t) EEPROM.readUInt(_adress);
+      //value = (uint32_t) EEPROM.readUInt(_adress);
+      value = Settings.getUInt(_Name.c_str(),1);
       };
     uint32_t value=1;
     void storeValue();
@@ -108,10 +106,11 @@ class StringState : public State { //class to store the file path for logging
     void setBLEState();
   public:
     StringState(int adr,BLEUUID id,String Name, uint8_t String_size) : State(adr,id,Name),str_size(String_size) {
-      EEPROM.readString(_adress,str,str_size);      
+      //EEPROM.readString(_adress,str,str_size);
+      Settings.getString(_Name.c_str(),str,40);  //WARNING : need to deal with a default value
       };
     uint8_t str_size;
-    char str[44];
+    char str[40];
     void storeString();
     void setString(char string[]);
 };
