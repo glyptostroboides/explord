@@ -417,21 +417,14 @@ void setup() {
   */
   Serial.begin(115200);
 
-  //getStates();
-
-  /* Get the plugged sensor through the value of the signature resistor
-   * Découverte du capteur connecté grace à la valeur de résistance signature
-   */
-  //getPluggedSensor();
-  //pSensor->powerOn();
-  //pSensor->init();
   pDevice = new Device();
+  /*Discover which sensor is connected,init the sensor and start it : détection, initialisation et démarrage du capteur connecté*/
+  pDevice->getSensor();
   pDevice->startSensor();
-  
-  /* Init the services according to the states of the device
-   * Démarrage des services conformément aux valeurs d'états du module
-   */
-  //initStates();
+  /* Init the services according to the settings of the device
+    * Démarrage des services conformément aux paramètres du module
+    */
+  pDevice->initSettings();
 
   //delay(1000); // The sensor need about 1 second to calculate new values : Il faut laisser du temps au capteur pour calculer sa première valeur
   DelayTime=millis();
@@ -442,14 +435,11 @@ void loop() {
   /*
    * Read the sensor data according to the delay and send it through BLE and Serial
    */
-  if(millis() > DelayTime + (pDevice->pStates->pReadDelay->value*1000)) {
+  if(millis() > DelayTime + (pDevice->pStates->pReadDelay->value*1000)) { //launched when the time since last measurement is higher than the readDelay
     DelayTime=millis();
     logTime+=pDevice->pStates->pReadDelay->value; //add the delay to total log time for the next read
-    if(pDevice->doRead()) {switchLed();}
-    /*if (pSensor->readData()) { //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles
-      doStates(); // Deal with the datas according to state config : BLE, Serial, SD, ...
-      switchLed(); //Turn the led on after last reading
-    }*/
+    /* Get the data from sensor and act according to settings and turn led on after last reading*/
+    if(pDevice->doRead()) {switchLed();} //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles
   }
   /*Turn off the led lighted on after last reading*/
   if(LedOn and (millis() > LedTime + BlinkTime)) { switchLed();}
@@ -460,8 +450,7 @@ void loop() {
   // disconnecting // give the bluetooth stack the chance to get things ready : si aucun client n'est connecté le capteur retente de proposer des données après 500ms
   if (!pDevice->BLEConnected and pDevice->oldBLEConnected and (millis()> ReadvertisingTime+ 500 )) {
     ReadvertisingTime=millis();
-    //pServer->startAdvertising(); 
-    pDevice->startAdvertisingBLE(); // restart advertising
+    pDevice->startAdvertisingBLE(); // restart advertising when disconnected
     pDevice->oldBLEConnected = pDevice->BLEConnected;
   }
   // connecting

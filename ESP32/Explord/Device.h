@@ -62,8 +62,6 @@ extern RTC_DATA_ATTR unsigned long logTime; //Store the time between the begin o
 //RTC_DATA_ATTR uint32_t readDelay = READ_DELAY; 
 
 class State {
-  private : 
-    void setBLEState();
   public :
     State(int adr,BLEUUID id,String Name) : _adress(adr),uuid(id),_Name(Name) {};
     //byte state=1;
@@ -72,9 +70,6 @@ class State {
     BLEUUID uuid=BLEUUID((uint16_t)0x0000);
     BLECharacteristic* pChar;
     void initBLEState(BLEService* pService);
-    //void setState(byte istate, bool BLE);
-    //void switchState();
-    //byte isOn();  
 };
 
 class BoolState : public State {
@@ -140,9 +135,8 @@ class Device {
     class ServerCallbacks: public BLEServerCallbacks {
       void onConnect(BLEServer* pServer) {
       BLEConnected = true;
-//      if (pStates->pMultiConnectState->isOn()) { BLEDevice::startAdvertising();} // needed to support multi-connect, that mean more than one client connected to server
-      }; // WARNING : can be changed to pAdvertising->start(); TO TEST
-
+      restartAdvertisingBLE();//needed to support multi-connect(not done if multiconnect is not setted), that mean more than one client connected to server
+      }; 
       void onDisconnect(BLEServer* pServer) {
       BLEConnected = false;
       };
@@ -156,16 +150,17 @@ class Device {
     */
     static bool BLEConnected;
     static bool oldBLEConnected;
-    static bool isTimerWakeUp;
+    //static bool isTimerWakeUp;
     static States* pStates; 
-    void checkTimerWakeUp();
+    static bool isTimerWakeUp();
+    void initSettings();
     void getSensor();
     void startSensor();
     void setBLEServer();
-    void startAdvertisingBLE();
+    static void startAdvertisingBLE();
+    static void restartAdvertisingBLE();
     void stopBLEServer();
     static void startLog();
-    void getStates();
     void getSerial();
     bool doRead();
     void doSleep();

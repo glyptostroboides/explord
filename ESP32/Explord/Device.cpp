@@ -6,10 +6,7 @@ unsigned long logTime = 0;
 void State::initBLEState(BLEService* pService) {
 //      // Create a BLE characteristic 
   pChar=pService->createCharacteristic(uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
-  setBLEState(); 
 };
-
-void State::setBLEState(){};
       
 void BoolState::setState(byte istate, bool BLE=false) {
   state=istate;
@@ -18,7 +15,8 @@ void BoolState::setState(byte istate, bool BLE=false) {
     EEPROM.write(_adress,(uint8_t) state);
     EEPROM.commit();
     }
-  if (pChar and !BLE){ setBLEState();}
+  //if (pChar and !BLE){ setBLEState();}
+  if (!BLE) {setBLEState();}
 };
     
 void BoolState::switchState() {
@@ -28,7 +26,6 @@ void BoolState::switchState() {
   else { setState(1);
     //Serial.println(String(_Name + " is On"));
     }
-  pChar->notify();
 };
     
 byte BoolState::isOn() {
@@ -43,6 +40,7 @@ void BLEState::switchState() { //Can be changed simply by overwriting setBLEStat
 
 void BoolState::setBLEState() {
   pChar->setValue((uint8_t*)&state,1);
+  pChar->notify();
 };
 
 void ValueState::setBLEState() {
@@ -92,21 +90,10 @@ BLEService *Device::pCustomService = NULL;
 */
 bool Device::BLEConnected=false;
 bool Device::oldBLEConnected=false;
-bool Device::isTimerWakeUp=false;
 
 Sensor* Device::pSensor=NULL;
 Device::States* Device::pStates=NULL;
 Log* Device::pLog=NULL;
-
-/*
-BoolState* Device::States::pMultiConnectState = new BoolState(0,MultiConnectStateUUID,"Multiconnect");
-BoolState* Device::States::pSerialState = new BoolState(1,SerialStateUUID,"Serial");
-BLEState* Device::States::pBLEState = new BLEState(2,BLEStateUUID,"BLE");
-BoolState* Device::States::pLogState = new BoolState(3,LogStateUUID,"Log");
-BoolState* Device::States::pEcoState = new BoolState(4,EcoStateUUID,"Eco");
-
-ValueState* States::pReadDelay = new ValueState(10,DelayUUID,"Delay");
-StringState* States::pLogFilePath = new StringState(20,LogFilePathUUID,"Log File Path",40);*/
 
 BoolState* Device::States::pMultiConnectState = NULL;
 BoolState* Device::States::pSerialState = NULL;
@@ -121,72 +108,56 @@ StringState* Device::States::pLogFilePath = NULL;
 Device::States::States() {
   /*Start the EEPROM memory management and get the module persistant state values*/
   EEPROM.begin(EEPROM_SIZE);
+
+  /*Instantiate the settings according to the one contained in the EEPROM memory*/
   
-  pMultiConnectState = new BoolState(0,MultiConnectStateUUID,"Multiconnect");
+  /* Create a setting to enable multiconnect for BLE 4.1 devices : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum*/
+  pMultiConnectState = new BoolState(0,MultiConnectStateUUID,"Multiconnect"); 
+  /* Create a setting to enable Serial : Caractéristique pour activer l'envoie des données par le port série*/
   pSerialState = new BoolState(1,SerialStateUUID,"Serial");
   pBLEState = new BLEState(2,BLEStateUUID,"BLE");
+  /*Create a setting to enable log to a file on onboard SD Card : Caractéristique pour activer l'enregistrement des mesures sur la carte SD*/
   pLogState = new BoolState(3,LogStateUUID,"Log");
+  /*Create a setting to enable the eco mode that turn off the device and sensor between readings*/
   pEcoState = new BoolState(4,EcoStateUUID,"Eco");
-
+  /*Setting to configure the to hold the timespan between two measurement: Creation d'une caractéristique contenant l'intervalle entre deux mesures : 4 octets*/
   pReadDelay = new ValueState(10,DelayUUID,"Delay");
+  /*Setting to  configure log  file path : Caractéristique pour configurer le nom du fichier de log*/
   pLogFilePath = new StringState(20,LogFilePathUUID,"Log File Path",40);
 };
 
-/*
- * Callbacks fonction launched when a value of the custom service is modified by a BLE client
- * Fonction définie par la bibliothèque est lancée lorsqu'une valeur a été modifiée par un client BLE
- */
-void Device::States::StateCallbacks::onWrite (BLECharacteristic *pCharacteristic) { //TODO : remove this test by adding a callback for each State !!
-  if (pCharacteristic == pMultiConnectState->pChar) {
-      pMultiConnectState->switchState();
-      pAdvertising->start(); //WARNING TEMPORARY
-      }
-  if (pCharacteristic == pSerialState->pChar) {pSerialState->switchState();}
-  if (pCharacteristic == pLogState->pChar) {
-      pLogState->switchState();
-      if (pLogState->isOn()){startLog();} //WARNING TEMPORARY
-      }
-  if (pCharacteristic == pEcoState->pChar) {pEcoState->switchState();}
-  if (pCharacteristic == pReadDelay->pChar) {
-      uint8_t* pData = pCharacteristic->getData();
-      memcpy(&pReadDelay->value,pData,4);
-      pReadDelay->storeValue();
-      }
-};
-
-
 void Device::States::configBLEService(BLEService* pService) { //TO DO : Can be changed to a loop : for pState in {pMulticonnect, ...} {pState->initBLEState(pService);pState->pCallback;}
+  /*Configure the BLE server to expose and configure the module settings : configuration du serveur pour exposer et configurer les paramètres du module en BLE*/
   //pStateCallbacks = new StateCallbacks();
-  // Create a BLE characteristic that enable multiconnect for BLE 4.1 devices : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum
   pMultiConnectState->initBLEState(pService);
   pMultiConnectState->pChar->setCallbacks(&StateCallback);
   
-  // Create a BLE characteristic that enable Serial : Caractéristique pour activer l'envoie des données par le port série
   pSerialState->initBLEState(pService);
   pSerialState->pChar->setCallbacks(&StateCallback);
 
-  // Create a BLE characteristic that enable log to a file on onboard SD Card : Caractéristique pour activer l'enregistrement des mesures sur la carte SD
   pLogState->initBLEState(pService);
   pLogState->pChar->setCallbacks(&StateCallback);
 
-  // Create a BLE characteristic to enable the eco mode that turn off the device and sensor between readings
   pEcoState->initBLEState(pService);
   pEcoState->pChar->setCallbacks(&StateCallback);
 
-  // Create a BLE characteristic to old the timespan between two readings : Creation d'une caractéristique contenant l'intervalle entre deux mesures : 4 octets
   pReadDelay->initBLEState(pService);
   pReadDelay->pChar->setCallbacks(&StateCallback);
+
+  pLogFilePath->initBLEState(pService);
+  pLogFilePath->pChar->setCallbacks(&StateCallback);
 };
 
 
 Device::Device() {
-  checkTimerWakeUp();
+  /*Instantiate the States nested class to recover the settings from EEPROM memory 
+   Récupération des paramètres dans la mémoire EEPROM*/
   pStates = new States();
-  //pStates->initStates(); //initialize with constructor
-  getSensor();
 };
 
 void Device::getSensor() {
+  /* Get the plugged sensor through the value of the signature resistor
+   * Découverte du capteur connecté grace à la valeur de résistance signature */
   pinMode(PPPOWERPIN,OUTPUT);
   digitalWrite(PPPOWERPIN, HIGH); //set high the pin to power the resistor bridge
   delay(10);
@@ -234,11 +205,12 @@ void Device::getSensor() {
 };
 
 void Device::startSensor() {
+  /* Start the sensor power and initialize the sensor*/
   pSensor->powerOn();
   pSensor->init();
 };
 
-void Device::checkTimerWakeUp() {
+bool Device::isTimerWakeUp() {
   /* Get the wake up reason, to detect timer wake up of user wake up (switch off and on)
    * Détermination du mode de réveil : minuteur programmé ou bouton marche arrêt
    */
@@ -246,17 +218,18 @@ void Device::checkTimerWakeUp() {
   wakeup_reason = esp_sleep_get_wakeup_cause();
   switch(wakeup_reason) {
     case ESP_SLEEP_WAKEUP_TIMER : 
-      Serial.println("Wakeup from sleep"); 
-      isTimerWakeUp = true;
+      //Serial.println("Wakeup from sleep"); 
+      return true;
     default : 
-      Serial.println("Wakeup from power on"); 
-      isTimerWakeUp = false;
+      //Serial.println("Wakeup from power on"); 
+      return false;
+     
     }
 }
 
 void Device::setBLEServer () {
-  //Init the BLE Server : Demarrage du serveur BLE fournissant les valeurs mesurées et les paramétres d'état du module
-  // Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement
+  /*Init the BLE Server : Demarrage du serveur BLE fournissant les valeurs mesurées et les paramétres d'état du module*/
+  /*Create the BLE Device : Creation du peripherique BLE et definition de son nom qui s'affichera lors du scan : peut contenir une reference unique egalement*/
   BLEDevice::init((deviceName + pSensor->getName() + "-" + deviceNumber).c_str());
 
   // Create the BLE Server : Creation du serveur BLE et mise en place de la fonction de callback pour savoir si le serveur est connecté et doit commencer à envoyer des notifications
@@ -290,7 +263,11 @@ void Device::stopBLEServer() {
 };
 
 void Device::startAdvertisingBLE() {
-  pAdvertising->start();
+  pAdvertising->start();  
+};
+
+void Device::restartAdvertisingBLE() {
+  if (pStates->pMultiConnectState->isOn()) { pAdvertising->start();}
 };
 
 void Device::startLog() {
@@ -299,27 +276,52 @@ void Device::startLog() {
   pLog->initSD();
 };
 
-void Device::getStates() {
-  /* Init the services according to the states of the device
-   * Démarrage des services conformément aux valeurs d'états du module
+void Device::initSettings() {
+  /* Init the services according to the settings of the device
+   * Démarrage des services conformément aux paramètres du module
    */
   if (pStates->pLogState->isOn()) {
-      pLog = new Log(pSensor,States::pLogFilePath->str);
+      pLog = new Log(pSensor,pStates->pLogFilePath->str);
       pLog->initSD();
       }
-  if (pStates->pEcoState->isOn()) {
-      if(isTimerWakeUp) {
-        States::pEcoState->switchState();
-        }
-      else {doReadAndSleep();}
-      }
+  if (pStates->pEcoState->isOn()) { /*Ecostate there to prevent the init of the BLE Server when in EcoMode*/
+      if(isTimerWakeUp()) {doReadAndSleep();} 
+      } 
   if (pStates->pBLEState->isOn()) {
       esp_base_mac_addr_set(mac_adress);     
       setBLEServer();
-      }  
-      
-  if (pStates->pSerialState->isOn()) {pSensor->printSerialHeader();}
+      }       
+  if (pStates->pSerialState->isOn()) {
+      pSensor->printSerialHeader();
+      }
+  if (pStates->pEcoState->isOn()) {
+      pStates->pEcoState->switchState();//WARNING : produce a crash with all settings , if the server is not setted before this occured : TO LOOK AGAIN
+      }
 };
+
+/*
+ * Callbacks fonction launched when a value of the custom service is modified by a BLE client
+ * Fonction définie par la bibliothèque est lancée lorsqu'une valeur a été modifiée par un client BLE
+ */
+void Device::States::StateCallbacks::onWrite (BLECharacteristic *pCharacteristic) { //TODO : remove this test by adding a callback for each State !!
+  if (pCharacteristic == pMultiConnectState->pChar) {
+      pMultiConnectState->switchState();
+      if(pMultiConnectState->isOn()){pAdvertising->start();}
+      }
+  if (pCharacteristic == pSerialState->pChar) {pSerialState->switchState();}
+  if (pCharacteristic == pLogState->pChar) {
+      pLogState->switchState();
+      if (pLogState->isOn()){startLog();}
+      }
+  if (pCharacteristic == pEcoState->pChar) {pEcoState->switchState();}
+  if (pCharacteristic == pReadDelay->pChar) {
+      uint8_t* pData = pCharacteristic->getData();
+      memcpy(&pReadDelay->value,pData,4);
+      pReadDelay->storeValue();
+      }
+};
+
+/*Function to deal with an incoming Serial change and set the device according to it : fonction pour gérer les commandes envoyée à travers l'USB*/
 
 void Device::getSerial() {
   String incomingString = Serial.readStringUntil('\r');
@@ -337,16 +339,15 @@ void Device::getSerial() {
       break;
     case 'M' :
       pStates->pMultiConnectState->switchState();
+      if(pStates->pMultiConnectState->isOn()){pAdvertising->start();}
       break;
     case 'S' :
       pStates->pSerialState->switchState();
       break;
-    case 'B' :  
-      if (pStates->pBLEState->isOn()) {
-        stopBLEServer();
-      }
+    case 'B' :
+      pStates->pBLEState->switchState();  
+      if (pStates->pBLEState->isOn()) {stopBLEServer();}
       else {setBLEServer();};
-      pStates->pBLEState->switchState();
       break;
     case 'E' :
       pStates->pEcoState->switchState();
@@ -359,13 +360,11 @@ void Device::getSerial() {
         else {
           incomingString= "/" + incomingString.substring(2) + ".csv";
           }
-        incomingString.toCharArray(pStates->pLogFilePath->str,44);
+        incomingString.toCharArray(pStates->pLogFilePath->str,43);
         pStates->pLogFilePath->storeString();
         }
       pStates->pLogState->switchState();
-      if (pStates->pLogState->isOn()){
-         startLog();
-        }
+      if (pStates->pLogState->isOn()){startLog();        }
       break;
     case 'R' :
       pLog->readFile();
@@ -379,8 +378,8 @@ bool Device::doRead() {
     if (pStates->pSerialState->isOn()){pSensor->printSerialData(&logTime);} // if Serial is on : print data to serial USB
     if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected
     if (pStates->pLogState->isOn()) {pLog->logSD(&logTime);} // if Log on log to the current log file
-    if (pStates->pEcoState->isOn()) {
-      logTime+=pStates->pReadDelay->value;
+    if (pStates->pEcoState->isOn()) { //going to sleep when Eco state is turned on
+      logTime+=pStates->pReadDelay->value; // but before this increment the time since log start
       doSleep();
       }
     return true;
