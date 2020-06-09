@@ -16,7 +16,7 @@ class Characteristic {
        Define the BLE service pointer for the characteristic
        Definition du pointeur du service auquel est rattache la caracteristique
     */
-    BLEService* _pService;
+    //BLEService* _pService;
     /*
         BLE characteristic pointer for the sensor
         Declaration d'un pointeur pour la caracteristique BLE

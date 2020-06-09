@@ -15,7 +15,7 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 
-#include "EEPROM.h" 
+//#include "EEPROM.h" 
 #include <Preferences.h> //Used to store device state configurations inside a persistant memory
 extern Preferences Settings;
 /*
@@ -58,61 +58,55 @@ const BLEUUID LogFilePathUUID = BLEUUID("00004862-1000-2000-3000-6578706c6f72");
 extern RTC_DATA_ATTR unsigned long logTime; //Store the time between the begin of log to save or display it : temps depuis le début de l'acquisition à afficher ou à transmettre
 //RTC_DATA_ATTR uint32_t readDelay = READ_DELAY; 
 
-class State {
+class State { // Could be merged to the similar Characteristic class
   public :
-    State(int adr,BLEUUID id,String Name) : _adress(adr),uuid(id),_Name(Name) {};
-    //byte state=1;
-    int _adress=0;
+    State(BLEUUID id,String Name, uint8_t* pres) : uuid(id),_Name(Name),presentation(pres) {};
     String _Name =""; //was a String before
     BLEUUID uuid=BLEUUID((uint16_t)0x0000);
     BLECharacteristic* pChar;
+    uint8_t* presentation;
     void initBLEState(BLEService* pService);
 };
 
 class BoolState : public State {
-  private :
-    void setBLEState();
   public :
-    BoolState(int adr,BLEUUID id,String Name, bool default_value) : State(adr,id,Name) {
+    BoolState(BLEUUID id,String Name, bool default_value,uint8_t* pres) : State(id,Name,pres) {
       state = Settings.getBool(_Name.c_str(),default_value);
       };
     bool state;
     void setState(bool istate, bool BLE);
     void switchState();
     bool isOn();  
+    void setBLEState(bool notification=true);
 };
 
 class BLEState : public BoolState {
   public:
-    BLEState(int adr,BLEUUID id,String Name,bool default_value): BoolState(adr,id,Name,default_value){};
+    BLEState(BLEUUID id,String Name,bool default_value,uint8_t* pres): BoolState(id,Name,default_value,pres){};//Could be set to presBool by default
     void switchState ();
 };
 
 class ValueState : public State { // class for the read delay
-  private:
-    void setBLEState();
   public:
-    ValueState(int adr,BLEUUID id,String Name,uint32_t default_value) : State(adr,id,Name) {
-      //value = (uint32_t) EEPROM.readUInt(_adress);
+    ValueState(BLEUUID id,String Name,uint32_t default_value,uint8_t* pres) : State(id,Name,pres) {
       value = Settings.getUInt(_Name.c_str(),default_value);
       };
     uint32_t value=1;
     void storeValue();
     void setValue(uint32_t Value);
+    void setBLEState(bool notification=true);
 };
 
 class StringState : public State { //class to store the file path for logging
-  private:
-    void setBLEState();
   public:
-    StringState(int adr,BLEUUID id,String Name, size_t String_size) : State(adr,id,Name),str_size(String_size) {
-      //EEPROM.readString(_adress,str,str_size);
+    StringState(BLEUUID id,String Name, size_t String_size,uint8_t* pres) : State(id,Name,pres),str_size(String_size) {
       Settings.getString(_Name.c_str(),str,40);  //WARNING : need to deal with a default value
       };
     size_t str_size;
     char str[40];
     void storeString();
     void setString(char string[]);
+    void setBLEState(bool notification=true);
 };
 
 
@@ -132,13 +126,8 @@ class Device {
     * Fonction définie par la bibliothèque est lancée lorsqu'une valeur a été modifiée par un client BLE
     */
     class ServerCallbacks: public BLEServerCallbacks {
-      void onConnect(BLEServer* pServer) {
-      BLEConnected = true;
-      restartAdvertisingBLE();//needed to support multi-connect(not done if multiconnect is not setted), that mean more than one client connected to server
-      }; 
-      void onDisconnect(BLEServer* pServer) {
-      BLEConnected = false;
-      };
+      void onConnect(BLEServer* pServer); 
+      void onDisconnect(BLEServer* pServer);
     } ServerCallback; 
   public:
     Device();
@@ -149,7 +138,6 @@ class Device {
     */
     static bool BLEConnected;
     static bool oldBLEConnected;
-    //static bool isTimerWakeUp;
     static States* pStates; 
     static bool isTimerWakeUp();
     void initSettings();
@@ -177,6 +165,5 @@ class Device::States {
     static BLEState* pBLEState;
     static ValueState* pReadDelay; //Define a value for the delay between each reading : Définition de l'intervalle entre deux mesures en secondes
     static StringState* pLogFilePath;
-    //void initStates();
     void configBLEService(BLEService* pService);
 };

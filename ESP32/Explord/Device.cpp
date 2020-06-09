@@ -4,21 +4,57 @@ uint8_t mac_adress[8] = DEVICE_MAC;
 RTC_DATA_ATTR unsigned long logTime = 0;
 Preferences Settings;
 
-void State::initBLEState(BLEService* pService) {
+uint8_t presBool[] = {
+  0x01, // Format = 1 = "boolean"
+  0x00, // Exponent = 0
+  0x27, // Unit = 0x2700 = "unitless" (low byte)
+  0x00, // ditto (high byte)
+  0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
+  0x00, // Description = 0 = "unknown" (low byte)
+  0x00, // ditto (high byte)
+};
+
+uint8_t presDelay[] = {
+  0x01, // Format = 8 = "unsigned 32-bit integer"
+  0x00, // Exponent = 0
+  0x27, // Unit = 0x2703 = "time(second)" (low byte)
+  0x03, // ditto (high byte)
+  0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
+  0x00, // Description = 0 = "unknown" (low byte)
+  0x00, // ditto (high byte)
+};
+
+uint8_t presLogFilePath[] = {
+  0x01, // Format = E = "signed 16-bit integer"
+  0x00, // Exponent = 0
+  0x27, // Unit = 0x2700 = "unitless" (low byte)
+  0x00, // ditto (high byte)
+  0x01, // Namespace = 1 = "Bluetooth SIG Assigned Numbers"
+  0x00, // Description = 0 = "unknown" (low byte)
+  0x00, // ditto (high byte)
+};
+
+void State::initBLEState(BLEService* pService) { //Could be easily merged to Characteristic class with a common base class
 //      // Create a BLE characteristic 
   pChar=pService->createCharacteristic(uuid,BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_WRITE | BLECharacteristic::PROPERTY_NOTIFY );
+   // Create a BLE Descriptor with BLE2902 (which manage the Notify settings)
+  pChar->addDescriptor(new BLE2902());
+  // Define a Descriptor for the name of the characteristic as a string: Definition des descripteurs contenant le nom de la valeur présentée par le serveur
+  BLEDescriptor *nameDescriptor = new BLEDescriptor((uint16_t)0x2901); // Characteristic User Description : pour indiquer le nom de la valeur mesurée
+  pChar->addDescriptor(nameDescriptor);
+  nameDescriptor->setValue(_Name.c_str());
+  //Define the presentation format for each characteristic ( Characteristic Presentation Format) : Définition des descripteurs contenant les informations sur la presentation des valeurs mesurées  if (_presentation != NULL) {
+  BLEDescriptor *presentationDescriptor = new BLEDescriptor((uint16_t)0x2904);
+  pChar->addDescriptor(presentationDescriptor);
+  presentationDescriptor->setValue(presentation, 7);
 };
       
 void BoolState::setState(bool istate, bool BLE=false) {
   state=istate;
   Serial.println(String(_Name + " is " + state));      
-  /*if (_adress) {
-    EEPROM.write(_adress,(uint8_t) state);
-    EEPROM.commit();
-    }*/
   Settings.putBool(_Name.c_str(),state);
   //if (pChar and !BLE){ setBLEState();}
-  if (!BLE) {setBLEState();}
+  if (!BLE) {setBLEState();} // needed to avoid a bug with turning off BLE through BLE ! this is made impossible
 };
     
 void BoolState::switchState() {
@@ -40,20 +76,18 @@ void BLEState::switchState() { //Can be changed simply by overwriting setBLEStat
   else {setState(true,true);}
 };
 
-void BoolState::setBLEState() {
+void BoolState::setBLEState(bool notification) {
   pChar->setValue((uint8_t*)&state,1);
-  pChar->notify();
+  if(notification){pChar->notify();}
 };
 
-void ValueState::setBLEState() {
+void ValueState::setBLEState(bool notification) {
   pChar->setValue((uint8_t*)&value,4);
-  pChar->notify();
+  if(notification){pChar->notify();}
 };
 
 void ValueState::storeValue() {
   Settings.putUInt(_Name.c_str(),value);
-  //EEPROM.writeUInt(_adress,value);
-  //EEPROM.commit();
 };
 
 void ValueState::setValue(uint32_t Value) {
@@ -62,15 +96,13 @@ void ValueState::setValue(uint32_t Value) {
   setBLEState();
 };
 
-void StringState::setBLEState() {
+void StringState::setBLEState(bool notification) {
   pChar->setValue((uint8_t*)str,str_size);
-  pChar->notify();
+  if(notification){pChar->notify();}
 };
 
 void StringState::storeString() {
   Settings.putString(_Name.c_str(),str);//str could be changed to String
-  //EEPROM.writeString(_adress,str);
-  //EEPROM.commit();
 };
 
 void StringState::setString (char string[]) {
@@ -117,40 +149,48 @@ Device::States::States() {
   /*Instantiate the settings according to the one contained in the EEPROM memory*/
   
   /* Create a setting to enable multiconnect for BLE 4.1 devices : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum*/
-  pMultiConnectState = new BoolState(0,MultiConnectStateUUID,"Multiconnect",1); 
+  pMultiConnectState = new BoolState(MultiConnectStateUUID,"Multiconnect",1,presBool); 
   /* Create a setting to enable Serial : Caractéristique pour activer l'envoie des données par le port série*/
-  pSerialState = new BoolState(1,SerialStateUUID,"Serial",1);
-  pBLEState = new BLEState(2,BLEStateUUID,"BLE",1);
+  pSerialState = new BoolState(SerialStateUUID,"Serial",1,presBool);
+  /* Setting to enable or disable BLE Server (not possible through BLE)*/
+  pBLEState = new BLEState(BLEStateUUID,"BLE",1,presBool);
   /*Create a setting to enable log to a file on onboard SD Card : Caractéristique pour activer l'enregistrement des mesures sur la carte SD*/
-  pLogState = new BoolState(3,LogStateUUID,"Log",0);
+  pLogState = new BoolState(LogStateUUID,"Log",0,presBool);
   /*Create a setting to enable the eco mode that turn off the device and sensor between readings*/
-  pEcoState = new BoolState(4,EcoStateUUID,"Eco",0);
+  pEcoState = new BoolState(EcoStateUUID,"Eco",0,presBool);
   /*Setting to configure the to hold the timespan between two measurement: Creation d'une caractéristique contenant l'intervalle entre deux mesures : 4 octets*/
-  pReadDelay = new ValueState(10,DelayUUID,"Delay",1);
+  pReadDelay = new ValueState(DelayUUID,"Delay",1,presDelay);
   /*Setting to  configure log  file path : Caractéristique pour configurer le nom du fichier de log*/
-  pLogFilePath = new StringState(20,LogFilePathUUID,"Log File Path",40);
+  pLogFilePath = new StringState(LogFilePathUUID,"Log File Path",40,presLogFilePath);
 };
 
 void Device::States::configBLEService(BLEService* pService) { //TO DO : Can be changed to a loop : for pState in {pMulticonnect, ...} {pState->initBLEState(pService);pState->pCallback;}
   /*Configure the BLE server to expose and configure the module settings : configuration du serveur pour exposer et configurer les paramètres du module en BLE*/
-  //pStateCallbacks = new StateCallbacks();
   pMultiConnectState->initBLEState(pService);
+  pMultiConnectState->setBLEState(false);
   pMultiConnectState->pChar->setCallbacks(&StateCallback);
   
   pSerialState->initBLEState(pService);
+  pSerialState->setBLEState(false);
   pSerialState->pChar->setCallbacks(&StateCallback);
 
   pLogState->initBLEState(pService);
+  pLogState->setBLEState(false);
   pLogState->pChar->setCallbacks(&StateCallback);
 
   pEcoState->initBLEState(pService);
+  pEcoState->setBLEState(false);
   pEcoState->pChar->setCallbacks(&StateCallback);
 
   pReadDelay->initBLEState(pService);
+  pReadDelay->setBLEState(false);
   pReadDelay->pChar->setCallbacks(&StateCallback);
 
   pLogFilePath->initBLEState(pService);
+  pLogFilePath->setBLEState(false);
   pLogFilePath->pChar->setCallbacks(&StateCallback);
+  
+  
 };
 
 
@@ -242,8 +282,8 @@ void Device::setBLEServer () {
   pServer->setCallbacks(&ServerCallback);
 
   // Create the BLE Services for the Environnemental Sensing Data and the Custom one: Creation du service pour les données environnementales et du service personnalisé
-  pEnvService = pServer->createService(EnvServiceUUID);
-  pCustomService = pServer->createService(CustomServiceUUID);
+  pEnvService = pServer->createService(EnvServiceUUID,30); // The parameter indicate the max number of handles : 2 for a characteristic and 1 for a descriptor
+  pCustomService = pServer->createService(CustomServiceUUID,30);
   // Create all the BLE Characteristics according to the sensor plugged into the module : création des caractéristiques BLE en fonction du capteur connecté
   pSensor->configBLEService(pEnvService);
 
@@ -321,12 +361,30 @@ void Device::States::StateCallbacks::onWrite (BLECharacteristic *pCharacteristic
   if (pCharacteristic == pEcoState->pChar) {
       pEcoState->switchState();
       }
+  uint8_t* pData = pCharacteristic->getData();
   if (pCharacteristic == pReadDelay->pChar) {
-      uint8_t* pData = pCharacteristic->getData();
       memcpy(&pReadDelay->value,pData,4);
       pReadDelay->storeValue();
       }
+  if (pCharacteristic == pLogFilePath->pChar) {
+      memcpy(&pLogFilePath->str,pData,40);
+      pLogFilePath->storeString();
+      }
 };
+
+/*
+   Callbacks fontion launched by the server when a connection or a disconnection occur
+   Fonction definie par la bibliotheque qui est lancée lorsque l'état du serveur BLE change : événement : connexion et deconnexion
+*/
+
+void Device::ServerCallbacks::onConnect(BLEServer* pServer) {
+      BLEConnected = true;
+      restartAdvertisingBLE();//needed to support multi-connect(not done if multiconnect is not setted), that mean more than one client connected to server
+      }; 
+
+void Device::ServerCallbacks::onDisconnect(BLEServer* pServer) {
+      BLEConnected = false;
+      };
 
 /*Function to deal with an incoming Serial change and set the device according to it : fonction pour gérer les commandes envoyée à travers l'USB*/
 
@@ -368,7 +426,7 @@ void Device::getSerial() {
           incomingString= "/" + incomingString.substring(2) + ".csv";
           }
         pStates->pLogFilePath->str_size=incomingString.length();
-        incomingString.toCharArray(pStates->pLogFilePath->str,pStates->pLogFilePath->str_size);
+        incomingString.toCharArray(pStates->pLogFilePath->str,pStates->pLogFilePath->str_size+1);
         pStates->pLogFilePath->storeString();
         }
       pStates->pLogState->switchState();
