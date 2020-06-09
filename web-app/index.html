@@ -486,7 +486,7 @@
 
             // -- If there is some data clear graph
             if (((_log_value[0] || [])["time"] || []).length > 0) {
-                if (confirm('Il y a déjà des données, elles seront supprimée. Etes vous sur de vouloir relancer un enregistrement?')) {
+                if (confirm('Il y a déjà des données, elles seront supprimées. Êtes vous sûrs de vouloir relancer un enregistrement?')) {
                     _log_value[deviceId] = [];
                     clearGraphValues(deviceId);
                 } else {
