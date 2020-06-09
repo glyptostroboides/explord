@@ -117,16 +117,16 @@ Device::States::States() {
   /*Instantiate the settings according to the one contained in the EEPROM memory*/
   
   /* Create a setting to enable multiconnect for BLE 4.1 devices : Caractéristique pour activer les connections multiples pour les client BLE 4.1 minimum*/
-  pMultiConnectState = new BoolState(0,MultiConnectStateUUID,"Multiconnect"); 
+  pMultiConnectState = new BoolState(0,MultiConnectStateUUID,"Multiconnect",1); 
   /* Create a setting to enable Serial : Caractéristique pour activer l'envoie des données par le port série*/
-  pSerialState = new BoolState(1,SerialStateUUID,"Serial");
-  pBLEState = new BLEState(2,BLEStateUUID,"BLE");
+  pSerialState = new BoolState(1,SerialStateUUID,"Serial",1);
+  pBLEState = new BLEState(2,BLEStateUUID,"BLE",1);
   /*Create a setting to enable log to a file on onboard SD Card : Caractéristique pour activer l'enregistrement des mesures sur la carte SD*/
-  pLogState = new BoolState(3,LogStateUUID,"Log");
+  pLogState = new BoolState(3,LogStateUUID,"Log",0);
   /*Create a setting to enable the eco mode that turn off the device and sensor between readings*/
-  pEcoState = new BoolState(4,EcoStateUUID,"Eco");
+  pEcoState = new BoolState(4,EcoStateUUID,"Eco",0);
   /*Setting to configure the to hold the timespan between two measurement: Creation d'une caractéristique contenant l'intervalle entre deux mesures : 4 octets*/
-  pReadDelay = new ValueState(10,DelayUUID,"Delay");
+  pReadDelay = new ValueState(10,DelayUUID,"Delay",1);
   /*Setting to  configure log  file path : Caractéristique pour configurer le nom du fichier de log*/
   pLogFilePath = new StringState(20,LogFilePathUUID,"Log File Path",40);
 };
@@ -382,6 +382,7 @@ void Device::getSerial() {
 };
 
 bool Device::doRead() {
+  logTime+=pStates->pReadDelay->value; //add the delay to total log time for the next read
   if (pSensor->readData()){ //true if new datas are collected by sensor : vrai si des nouvelles données envoyées par le capteur sont disponibles    if (Serial.available()) {checkSerial();}
     if (pStates->pSerialState->isOn()){pSensor->printSerialData(&logTime);} // if Serial is on : print data to serial USB
     if (BLEConnected) {pSensor->setBLEData();} // if a BLE device is connected advertise the new value

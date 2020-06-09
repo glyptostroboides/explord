@@ -73,8 +73,8 @@ class BoolState : public State {
   private :
     void setBLEState();
   public :
-    BoolState(int adr,BLEUUID id,String Name) : State(adr,id,Name) {
-      state = Settings.getBool(_Name.c_str(),false);
+    BoolState(int adr,BLEUUID id,String Name, bool default_value) : State(adr,id,Name) {
+      state = Settings.getBool(_Name.c_str(),default_value);
       };
     bool state;
     void setState(bool istate, bool BLE);
@@ -84,7 +84,7 @@ class BoolState : public State {
 
 class BLEState : public BoolState {
   public:
-    BLEState(int adr,BLEUUID id,String Name): BoolState(adr,id,Name){};
+    BLEState(int adr,BLEUUID id,String Name,bool default_value): BoolState(adr,id,Name,default_value){};
     void switchState ();
 };
 
@@ -92,9 +92,9 @@ class ValueState : public State { // class for the read delay
   private:
     void setBLEState();
   public:
-    ValueState(int adr,BLEUUID id,String Name) : State(adr,id,Name) {
+    ValueState(int adr,BLEUUID id,String Name,uint32_t default_value) : State(adr,id,Name) {
       //value = (uint32_t) EEPROM.readUInt(_adress);
-      value = Settings.getUInt(_Name.c_str(),1);
+      value = Settings.getUInt(_Name.c_str(),default_value);
       };
     uint32_t value=1;
     void storeValue();
@@ -105,11 +105,11 @@ class StringState : public State { //class to store the file path for logging
   private:
     void setBLEState();
   public:
-    StringState(int adr,BLEUUID id,String Name, uint8_t String_size) : State(adr,id,Name),str_size(String_size) {
+    StringState(int adr,BLEUUID id,String Name, size_t String_size) : State(adr,id,Name),str_size(String_size) {
       //EEPROM.readString(_adress,str,str_size);
       Settings.getString(_Name.c_str(),str,40);  //WARNING : need to deal with a default value
       };
-    uint8_t str_size;
+    size_t str_size;
     char str[40];
     void storeString();
     void setString(char string[]);
