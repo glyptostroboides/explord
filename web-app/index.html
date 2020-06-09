@@ -116,35 +116,35 @@
             "00004861-1000-2000-3000-6578706c6f72" : {
                 name : "Delay",
                 short : "delay",
-                nb_bit: "Uint32",
+                nb_bit: "Uint8",
                 type: "numeric",
                 input: "text"
             },
             "00004871-1000-2000-3000-6578706c6f72" : {
                 name : "Serial",
                 short : "serial",
-                nb_bit: "Uint32",
+                nb_bit: "Uint8",
                 type: "boolean",
                 input: "checkbox"
             },
             "00004870-1000-2000-3000-6578706c6f72" : {
                 name : "Multiconnect",
                 short : "multiconnect",
-                nb_bit: "Uint32",
+                nb_bit: "Uint8",
                 type: "boolean",
                 input: "checkbox"
             },
             "00004872-1000-2000-3000-6578706c6f72" : {
                 name : "Log",
                 short : "logstate",
-                nb_bit: "Uint32",
+                nb_bit: "Uint8",
                 type: "boolean",
                 input: "checkbox"
             }
 
         }
-
-        const customServiceUuid = "00004860-1000-2000-3000-6578706c6f72";
+        // Unuse : generate bug with android (no devices detected)
+        // const customServiceUuid = "00004860-1000-2000-3000-6578706c6f72";
 
         let _devices = [];
         let _charts = {};
@@ -358,13 +358,19 @@
         function handleCharacteristicParametersValueChange(event, deviceId) {
             console.log("handleCharacteristicParametersValueChange");
             let carac_code = event.target.uuid;
-            value = parseValue(event.target.value, _characteristics[carac_code].nb_bit);
+            const charac = _characteristics_parameters[carac_code];
+            value = parseValue(event.target.value, charac.nb_bit);
             const characValueContainer = document.querySelector(
-              '#value_parameters_' + deviceId + '_' + _characteristics[carac_code].short
+              '#value_parameters_' + deviceId + '_' + charac.short
             )
             // Display value
             if (characValueContainer){
-              characValueContainer.innerHTML = value;
+                if (charac.input == "checkbox") {
+                    characValueContainer.checked = value;
+                }
+                else {
+                    characValueContainer.value = value;
+                }
             }
         }
 
@@ -402,7 +408,14 @@
         function parseValue(value, type) {
           value = value.buffer ? value : new DataView(value);
           let result;
-          if (type == 'Uint16') {
+
+          if (type == 'Uint8')  {
+              result = value.getUint8(0, /*littleEndian=*/true);
+          }
+          else if (type == 'Int8')  {
+              result = value.getInt8(0, /*littleEndian=*/true) /100;
+          }
+          else if (type == 'Uint16') {
               result = value.getUint16(0, /*littleEndian=*/true) /100;
           }
           else if (type == 'Int16')  {
